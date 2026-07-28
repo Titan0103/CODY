@@ -26,8 +26,15 @@ try {
     PORT = process.env.PANEL_API_PORT || 9000;
 }
 
-// ============ NO AUTH — Full Open Access ============
-// Private repo, only you deploy — no secret needed
+// ============ AUTH MIDDLEWARE ============
+const PANEL_SECRET = process.env.PANEL_SECRET;
+app.use('/api', (req, res, next) => {
+    const auth = req.headers['authorization'];
+    if (!PANEL_SECRET || auth !== `Bearer ${PANEL_SECRET}`) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    next();
+});
 
 // ============ HEALTH ============
 app.get('/api/health', (req, res) => {
