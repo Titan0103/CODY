@@ -38,12 +38,18 @@ function ensureGroupConfig(db, group) {
 }
 
 function hasLink(text) {
-    return /(https?:\/\/|www\.|chat\.whatsapp\.com|wa\.me)/i.test(text);
+    if (/(https?:\/\/|www\.|chat\.whatsapp\.com|wa\.me)/i.test(text)) return true;
+    // bare domains without https:// also count (@crysnovax—FIX06-08-26)
+    return /(?:^|\s)(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s<>]*)?/i.test(text);
 }
 
 function extractUrls(text) {
-    const matches = text.match(/https?:\/\/[^\s<>]+/gi);
-    return matches || [];
+    const matches = [];
+    const withScheme = text.match(/https?:\/\/[^\s<>]+/gi) || [];
+    const bare = text.match(/(?:^|\s)(?:(?:[a-z0-9-]+\.)+[a-z]{2,})(?:\/[^\s<>]*)?/gi) || [];
+    for (const u of withScheme) matches.push(u.trim());
+    for (const b of bare) matches.push(b.trim());
+    return matches;
 }
 
 function extractDomains(urls) {
@@ -105,6 +111,7 @@ module.exports = {
             if (cfg.action === 'delete') actionDisplay = ' ꙰⊕ DELETE';
             else if (cfg.action === 'warn') actionDisplay = '⚠︎ WARN (3x → KICK)';
             else if (cfg.action === 'kick') actionDisplay = 'ಠ_ಠ KICK';
+            else if (cfg.action === 'tkick') actionDisplay = '⏱️ TEMP KICK (' + (cfg.tkickDuration || '5m') + ')';
 
             return reply(
                 `🖇️ *AntiLink Settings*\n\n` +
@@ -115,7 +122,7 @@ module.exports = {
                 `*Domains (whitelisted)*:\n${domains}\n\n` +
                 `Commands:\n` +
                 `• .antilink on / off\n` +
-                `• .antilink delete / warn / kick\n` +
+                `• .antilink delete / warn / kick / tkick 5m\n` +
                 `• .antilink add <domain>\n` +
                 `• .antilink remove <domain>\n` +
                 `• .antilink allow <full_link>\n` +
@@ -135,6 +142,7 @@ module.exports = {
             if (cfg.action === 'delete') actionText = ' ꙰⊕ DELETE';
             else if (cfg.action === 'warn') actionText = '⚠︎ WARN (3x → KICK)';
             else if (cfg.action === 'kick') actionText = 'ಠ_ಠ KICK';
+            else if (cfg.action === 'tkick') actionText = '⏱️ TEMP KICK (' + (cfg.tkickDuration || '5m') + ')';
             return reply(`亗 *AntiLink Enabled*\nAction: ${actionText}`);
         }
         if (sub === 'off') {
@@ -156,6 +164,13 @@ module.exports = {
             cfg.action = 'kick';
             saveDB(db);
             return reply(`ಠ_ಠ Action → *KICK* (immediate removal)`);
+        }
+        if (sub === 'tkick') {
+            cfg.action = 'tkick';
+            const durArg = args[1];
+            cfg.tkickDuration = (durArg && /^\d+(s|m|h|d)$/i.test(durArg)) ? durArg : '5m';
+            saveDB(db);
+            return reply(`⏱️ Action → *TEMP KICK* (auto re-added after ${cfg.tkickDuration})`);
         }
 
         // ── NEW: ADD DOMAIN ──────────────────────────────────────────────
@@ -256,12 +271,12 @@ module.exports = {
             if (warns[key]) {
                 delete warns[key];
                 saveWarns(warns);
-                return reply(`${prefix}✓ Warnings reset for @${mentionedsplit('@')[0]}`, { mentions: [mentioned] });
+                return reply(`${prefix}✓ Warnings reset for @${mentioned.split('@')[0]}`);
             }
             return reply('`✘ User has no warnings.`');
         }
 
-        return reply(`${prefix}𒆜 Usage:\nantilink on/off\n.antilink delete/warn/kick\n.antilink add <domain>\n.antilink remove <domain>\n.antilink allow <full_link>\n.antilink disallow <full_link>\n.antilink permit <url_prefix>\n.antilink unpermit <url_prefix>\n.antilink allowlist/permitlist/domainlist\n.antilink resetwarn @user\n.antilink clear`);
+        return reply(`${prefix}𒆜 Usage:\nantilink on/off\n.antilink delete/warn/kick/tkick 5m\n.antilink add <domain>\n.antilink remove <domain>\n.antilink allow <full_link>\n.antilink disallow <full_link>\n.antilink permit <url_prefix>\n.antilink unpermit <url_prefix>\n.antilink allowlist/permitlist/domainlist\n.antilink resetwarn @user\n.antilink clear`);
     }
 };
 
@@ -368,6 +383,19 @@ module.exports.handleAntiLink = async function(sock, m) {
             }).catch(() => {});
 
             await sock.groupParticipantsUpdate(group, [sender], 'remove').catch(() => {});
+        }
+        else if (action === 'tkick') {
+            // temp kick — auto re-added after the duration (@crysnovax—FIX06-08-26)
+            const { tkick, parseTime } = require('../../Plugin/tkick');
+            const durText = cfg.tkickDuration || '5m';
+            const durMs = parseTime(durText) || 5 * 60 * 1000;
+
+            await sock.sendMessage(group, {
+                text: `⏱️ @${sender.split('@')[0]} *TEMP KICKED* for sending a link — auto re-added after ${durText}.`,
+                mentions: [sender]
+            }).catch(() => {});
+
+            await tkick(sock, group, sender, durMs, 'sent a link (antilink)');
         }
 
     } catch (err) {

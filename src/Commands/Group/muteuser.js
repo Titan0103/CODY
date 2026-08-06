@@ -195,8 +195,9 @@ const timeArg=args.find(a=>/^\d+(s|m|h|d|w|mo)$/i.test(a));
 if(timeArg)
 timeMs=parseTime(timeArg);
 
+// no time given = muted forever until manually unmuted (@crysnovax—FIX06-08-26)
 if(!timeMs)
-timeMs=isAdmin?3600000:600000;
+timeMs=null;
 
 /* ================= REASON ================= */
 
@@ -207,7 +208,7 @@ const reason=args.filter(a=>
 
 /* ================= SAVE ================= */
 
-const until=Date.now()+timeMs;
+const until=timeMs?Date.now()+timeMs:null;
 
 db[chatId][targetJid]={
 mutedBy:sender,
@@ -221,6 +222,7 @@ saveMutedDb(db);
 
 /* ================= AUTO UNMUTE ================= */
 
+if(timeMs){
 setTimeout(async()=>{
 
 const db=getMutedDb();
@@ -236,6 +238,7 @@ mentions:[targetJid]
 }
 
 },timeMs);
+}
 
 /* ================= SUCCESS ================= */
 
@@ -244,7 +247,7 @@ text:
 `_*⟁⃝ USER MUTED 彡*_\n\n`+
 `—͟͟͞͞𖣘 Target: @${targetJid.split('@')[0]}\n`+
 `✐   Reason: ${reason}\n`+
-`ⓘ Duration: ${formatTime(timeMs)}`,
+`ⓘ Duration: ${timeMs?formatTime(timeMs):'∞ (forever)'}`,
 
 mentions:[targetJid]
 
@@ -270,7 +273,7 @@ return false;
 
 const muteInfo=db[chatId][sender];
 
-if(Date.now()>muteInfo.until){
+if(muteInfo.until&&Date.now()>muteInfo.until){
 delete db[chatId][sender];
 saveMutedDb(db);
 return false;

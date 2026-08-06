@@ -1,1 +1,119 @@
-const a0_0xbd06ec=a0_0x3a70;(function(_0x26af1a,_0x4b99ac){const _0x4e06f2=a0_0x3a70,_0xd9c9c5=_0x26af1a();while(!![]){try{const _0x597d77=parseInt(_0x4e06f2(0x14c))/0x1*(-parseInt(_0x4e06f2(0x172))/0x2)+parseInt(_0x4e06f2(0x169))/0x3+parseInt(_0x4e06f2(0x174))/0x4*(-parseInt(_0x4e06f2(0x125))/0x5)+-parseInt(_0x4e06f2(0x10b))/0x6+-parseInt(_0x4e06f2(0x161))/0x7+-parseInt(_0x4e06f2(0x145))/0x8+parseInt(_0x4e06f2(0x10e))/0x9*(parseInt(_0x4e06f2(0x10a))/0xa);if(_0x597d77===_0x4b99ac)break;else _0xd9c9c5['push'](_0xd9c9c5['shift']());}catch(_0x5b9e1b){_0xd9c9c5['push'](_0xd9c9c5['shift']());}}}(a0_0x5aa4,0x34a9d));const {getVar}=require(a0_0xbd06ec(0x139)),{getFont}=require('../Bot/botfont.js'),fs=require('fs'),path=require('path');function uptime(){const _0x14dc48=a0_0xbd06ec,_0x4d2f38=process[_0x14dc48(0x16d)](),_0xee4f62=Math[_0x14dc48(0x11d)](_0x4d2f38/0xe10),_0x579c8f=Math[_0x14dc48(0x11d)](_0x4d2f38%0xe10/0x3c),_0x2c9acb=Math['floor'](_0x4d2f38%0x3c);return _0xee4f62+'h\x20'+_0x579c8f+'m\x20'+_0x2c9acb+'s';}function on(_0x136a82,_0x3acfcf=!![]){const _0x1c7a37=a0_0xbd06ec;if(_0x136a82===undefined||_0x136a82===null)return _0x3acfcf?_0x1c7a37(0x10f):_0x1c7a37(0x129);return _0x136a82!==![]&&_0x136a82!==_0x1c7a37(0x127)&&_0x136a82!==0x0?_0x1c7a37(0x10f):_0x1c7a37(0x129);}function a0_0x5aa4(){const _0x50ccfa=['_*Private\x20彡*_','messages','botinfo','AUTO_STATUS_VIEW','https://media.crysnovax.workers.dev/4b050f72-ca45-4fa3-84fc-806ad438483a.jpg','sendMessage','split','since','214264xwnLnv','PREFIX','Anti\x20Tag','autosticker.json','AUTO_STATUS_LIKE','antidelete.json','Status\x20View','1lavMrp','Anti\x20Word','cwd','all','0@s.whatsapp.net','length','crysStats','120363402922206865@newsletter','toUpperCase','substring','ZEE\x20BOT','Fake\x20Typing','now','../Owner/setcmd.js','reason','Auto\x20Sticker','cmd','Owner','chat','Auto\x20Record','✓\x20ON\x20›\x20commands\x20only','2408245UcRcdZ','FAKE_TYPING','Anti\x20Call','Cmd\x20React','Auto\x20React','botstats','isEnabled','autoLike','162843AXgvBL','toString','BOTLANG','../Plugin/statusHandler','uptime','```ஃ𖠃\x20CRYSN⚉VA\x20AI🜲```\x20','stats','antigm.json','3EB0','652478GuGhsR','Number','12bTbuiu','```⌘\x20CRYSN☉VA\x20AI\x20𓀀```','../../../settings/config','commands','\x0a\x0a𒆜\x20⚔\x20*PROTECTION*\x0a𓃼\x0a','Anti\x20Edit','\x0a\x0a𒆜\x20彡\x20*PERFORMANCE*\x0a𓅓\x0a','6280ctBtal','1330344KGfByy','repeat','Anti\x20GM','17838QKvmrR','✓\x20ON','CAPTION','name','enabled','Tag\x20Emoji','AUTO_RECORDING','✓\x20ON\x20›\x20_','Caption','Name','status','Status\x20Like','max','../Owner/autoreact.js','parse','floor','Show\x20full\x20bot\x20statistics\x20and\x20settings','antilink.json','Timezone','AFK','\x0a\x0a𒆜\x20✪\x20*EXTRAS*\x0a𓅓\x0a','not\x20set','Style\x20','274145TyABOY','\x20✐\x20','false','Mode','✘\x20OFF','utf8','user','default','Commands','TAG_REACT_EMOJI','join','Anti\x20Delete','database','public','BOT_LANG','afk.json','status@broadcast','AUTO_READ','exports','✓\x20ON\x20›\x20all\x20messages','../../Plugin/configManager','AssCmd','readFileSync','Menu'];a0_0x5aa4=function(){return _0x50ccfa;};return a0_0x5aa4();}function typingMode(){const _0xd82ab9=a0_0xbd06ec,_0x35f4bb=getVar(_0xd82ab9(0x162),_0xd82ab9(0x15c));if(_0x35f4bb===_0xd82ab9(0x14f))return _0xd82ab9(0x138);if(_0x35f4bb===_0xd82ab9(0x15c))return _0xd82ab9(0x160);return _0xd82ab9(0x129);}function autoRecordingStatus(){const _0x541b4b=a0_0xbd06ec;return on(getVar(_0x541b4b(0x114),!![]));}function afkStatus(){const _0x4e70f6=a0_0xbd06ec;try{const _0xed9606=JSON[_0x4e70f6(0x11c)](fs['readFileSync'](path[_0x4e70f6(0x12f)](process[_0x4e70f6(0x14e)](),'database',_0x4e70f6(0x134)),'utf8'));if(!_0xed9606[_0x4e70f6(0x112)])return _0x4e70f6(0x129);const _0x3c9fb9=Date[_0x4e70f6(0x158)]()-_0xed9606[_0x4e70f6(0x144)],_0x450d7c=Math[_0x4e70f6(0x11d)](_0x3c9fb9/0xea60),_0x6108aa=Math[_0x4e70f6(0x11d)](_0x450d7c/0x3c),_0x4bf75b=Math[_0x4e70f6(0x11d)](_0x6108aa/0x18),_0x348fc9=_0x4bf75b>0x0?_0x4bf75b+'d\x20'+_0x6108aa%0x18+'h':_0x6108aa>0x0?_0x6108aa+'h\x20'+_0x450d7c%0x3c+'m':_0x450d7c+'m';return _0x4e70f6(0x115)+_0xed9606[_0x4e70f6(0x15a)]+'_\x20('+_0x348fc9+')';}catch{return _0x4e70f6(0x129);}}function a0_0x3a70(_0xe66d15,_0x19b756){_0xe66d15=_0xe66d15-0x106;const _0x5aa4a4=a0_0x5aa4();let _0x3a70d1=_0x5aa4a4[_0xe66d15];return _0x3a70d1;}function antideleteStatus(_0x243615){const _0x2513c2=a0_0xbd06ec;try{const _0x2529c1=JSON[_0x2513c2(0x11c)](fs['readFileSync'](path[_0x2513c2(0x12f)](process[_0x2513c2(0x14e)](),_0x2513c2(0x131),_0x2513c2(0x14a)),'utf8'));return _0x2529c1[_0x243615]?'✓\x20ON':_0x2513c2(0x129);}catch{return _0x2513c2(0x129);}}function antieditStatus(_0x171cd9){const _0x257c70=a0_0xbd06ec;try{const _0xe4146f=JSON['parse'](fs[_0x257c70(0x13b)](path[_0x257c70(0x12f)](process[_0x257c70(0x14e)](),_0x257c70(0x131),'antiedit.json'),'utf8'));return _0xe4146f[_0x171cd9]?_0x257c70(0x10f):_0x257c70(0x129);}catch{return _0x257c70(0x129);}}function autoStatusView(){const _0x24e943=a0_0xbd06ec;try{const {loadConfig:_0x259970}=require('../Plugin/statusHandler');return _0x259970()['autoView']?_0x24e943(0x10f):_0x24e943(0x129);}catch{return on(getVar(_0x24e943(0x140),!![]));}}function autoStatusLike(){const _0x426412=a0_0xbd06ec;try{const {loadConfig:_0x651b07}=require(_0x426412(0x16c));return _0x651b07()[_0x426412(0x168)]?_0x426412(0x10f):_0x426412(0x129);}catch{return on(getVar(_0x426412(0x149),!![]));}}function autoReactStatus(){const _0x365567=a0_0xbd06ec;try{const _0x19ea0d=require(_0x365567(0x11b));return _0x19ea0d[_0x365567(0x167)]()?_0x365567(0x10f):'✘\x20OFF';}catch{return _0x365567(0x129);}}function antiwordStatus(_0x13292d){const _0xba43f1=a0_0xbd06ec;try{const _0x3389a5=JSON['parse'](fs[_0xba43f1(0x13b)](path['join'](process[_0xba43f1(0x14e)](),_0xba43f1(0x131),'antiword.json'),_0xba43f1(0x12a)));return _0x3389a5[_0x13292d]?'✓\x20ON':_0xba43f1(0x129);}catch{return _0xba43f1(0x129);}}function antitagStatus(_0xd5c3e7){const _0x46a735=a0_0xbd06ec;try{const _0x79c0ec=JSON[_0x46a735(0x11c)](fs[_0x46a735(0x13b)](path[_0x46a735(0x12f)](process['cwd'](),_0x46a735(0x131),'antitag.json'),_0x46a735(0x12a)));return _0x79c0ec[_0xd5c3e7]?_0x46a735(0x10f):_0x46a735(0x129);}catch{return _0x46a735(0x129);}}function antigmStatus(_0xf98f6){const _0x55b425=a0_0xbd06ec;try{const _0xce5c8b=JSON[_0x55b425(0x11c)](fs[_0x55b425(0x13b)](path[_0x55b425(0x12f)](process[_0x55b425(0x14e)](),_0x55b425(0x131),_0x55b425(0x170)),_0x55b425(0x12a)));return _0xce5c8b[_0xf98f6]?_0x55b425(0x10f):'✘\x20OFF';}catch{return _0x55b425(0x129);}}function antilinkStatus(_0x4181e6){const _0xf54aae=a0_0xbd06ec;try{const _0x50a06e=JSON[_0xf54aae(0x11c)](fs[_0xf54aae(0x13b)](path['join'](process[_0xf54aae(0x14e)](),_0xf54aae(0x131),_0xf54aae(0x11f)),_0xf54aae(0x12a)));return _0x50a06e[_0x4181e6]?'✓\x20ON':_0xf54aae(0x129);}catch{return _0xf54aae(0x129);}}function asscmdStatus(){const _0x4a22cb=a0_0xbd06ec;try{return require(_0x4a22cb(0x159)),_0x4a22cb(0x10f);}catch{return _0x4a22cb(0x129);}}function autoStickerStatus(_0x58ba2e){const _0x5f06e4=a0_0xbd06ec;try{const _0x18b9e8=JSON[_0x5f06e4(0x11c)](fs[_0x5f06e4(0x13b)](path[_0x5f06e4(0x12f)](process[_0x5f06e4(0x14e)](),_0x5f06e4(0x131),_0x5f06e4(0x148)),_0x5f06e4(0x12a)));return _0x18b9e8[_0x58ba2e]?_0x5f06e4(0x10f):'✘\x20OFF';}catch{return _0x5f06e4(0x129);}}function autoVoiceStatus(_0x31a340){const _0x333485=a0_0xbd06ec;try{const _0x10821a=JSON[_0x333485(0x11c)](fs['readFileSync'](path[_0x333485(0x12f)](process[_0x333485(0x14e)](),_0x333485(0x131),'autovoice.json'),_0x333485(0x12a)));return _0x10821a[_0x31a340]?_0x333485(0x10f):'✘\x20OFF';}catch{return _0x333485(0x129);}}function row(_0x2e43c9,_0x1c5620,_0x181eb4=0xe){const _0x1c1caf=a0_0xbd06ec,_0x521208='·'[_0x1c1caf(0x10c)](Math[_0x1c1caf(0x11a)](0x1,_0x181eb4-_0x2e43c9[_0x1c1caf(0x151)]));return'❏◦\x20'+_0x2e43c9+'\x20'+_0x521208+_0x1c1caf(0x126)+_0x1c5620+'\x0a';}function getVerifiedContext(){const _0x4a3565=a0_0xbd06ec,_0x3e5880={'forwardingScore':0x3e7,'isForwarded':!![],'participant':_0x4a3565(0x150),'remoteJid':_0x4a3565(0x135),'quotedMessage':{'conversation':_0x4a3565(0x175)},'forwardedNewsletterMessageInfo':{'newsletterJid':_0x4a3565(0x153),'newsletterName':'𝓬𝓻𝔂𝓼𝓷𝓸𝓿𝓪\x20𝓿𝓮𝓻𝓲𝓯𝓲𝓮𝓭\x20✓','serverMessageId':0x1}},_0x392e99={'key':{'remoteJid':_0x4a3565(0x135),'fromMe':![],'participant':_0x4a3565(0x150),'id':_0x4a3565(0x171)+Math['random']()[_0x4a3565(0x16a)](0x10)[_0x4a3565(0x155)](0x2,0xa)[_0x4a3565(0x154)]()},'message':{'conversation':_0x4a3565(0x16e)}};return{'contextInfo':_0x3e5880,'fakeQuoted':_0x392e99};}module[a0_0xbd06ec(0x137)]={'name':a0_0xbd06ec(0x16f),'alias':[a0_0xbd06ec(0x118),a0_0xbd06ec(0x166),a0_0xbd06ec(0x13f)],'desc':a0_0xbd06ec(0x11e),'category':a0_0xbd06ec(0x15d),'ownerOnly':!![],'reactions':{'start':'📊','success':'❔'},'execute':async(_0x1b905f,_0x4c1397,{reply:_0x16568f})=>{const _0x51592e=a0_0xbd06ec,_0x34165f=require(_0x51592e(0x176)),_0x9a9da9=_0x4c1397[_0x51592e(0x15e)],_0x2e2726=getFont(_0x9a9da9)||_0x51592e(0x12c),_0x3f3081=getVar(_0x51592e(0x146),'.'),_0x2eb924=getVar('TIMEZONE','Africa/Lagos'),_0x308281=getVar(_0x51592e(0x133),getVar(_0x51592e(0x16b),'en'))||'en',_0x5a4489=_0x1b905f[_0x51592e(0x12b)]?.[_0x51592e(0x111)]||_0x51592e(0x156),_0x1fe8cc=_0x1b905f[_0x51592e(0x12b)]?.['id']?.[_0x51592e(0x143)](':')[0x0]||'—',_0x5376bc=getVar(_0x51592e(0x12e))||_0x51592e(0x123),_0x1218a8=getVar(_0x51592e(0x110),'©\x20CRYSNOVA\x20AI\x20V2'),_0x48164b=getVar('MENU_STYLE','1'),_0x3ce1a2=_0x34165f['status']?.[_0x51592e(0x132)]??!![],_0x58c7b3=_0x3ce1a2?'_*Public\x20彡*_':_0x51592e(0x13d),_0x2043d1='⌘\x20⿻\x20*B⎔T\x20STATISTICS*\x20⿻\x20⌘\x0a\x0a\x0a𒆜\x20ಠ_ಠ\x20*BⓘT\x20INFO*\x0a𓀀\x0a'+row(_0x51592e(0x117),_0x5a4489)+row(_0x51592e(0x173),_0x1fe8cc)+row(_0x51592e(0x128),_0x58c7b3)+row('Prefix','[\x20'+_0x3f3081+'\x20]')+row('Font',_0x2e2726)+row('Language',_0x308281)+row(_0x51592e(0x120),_0x2eb924)+row(_0x51592e(0x13c),_0x51592e(0x124)+_0x48164b)+_0x51592e(0x109)+row('Uptime',uptime())+row('Messages',String(global[_0x51592e(0x152)]?.[_0x51592e(0x13e)]||0x0))+row(_0x51592e(0x12d),String(global[_0x51592e(0x152)]?.[_0x51592e(0x106)]||0x0))+'\x0a\x0a𒆜\x20⌘\x20*CORE\x20TOGGLES*\x0a𓄂ᬼ𓆃\x0a'+row('Auto\x20Read',on(getVar(_0x51592e(0x136),!![])))+row(_0x51592e(0x163),on(getVar('ANTI_CALL',!![])))+row(_0x51592e(0x165),autoReactStatus())+row(_0x51592e(0x164),on(getVar('AUTO_REACT',!![])))+row(_0x51592e(0x113),_0x5376bc)+row(_0x51592e(0x14b),autoStatusView())+row(_0x51592e(0x119),autoStatusLike())+row(_0x51592e(0x157),typingMode())+row(_0x51592e(0x15f),autoRecordingStatus())+_0x51592e(0x107)+row(_0x51592e(0x130),antideleteStatus(_0x9a9da9))+row(_0x51592e(0x108),antieditStatus(_0x9a9da9))+row(_0x51592e(0x14d),antiwordStatus(_0x9a9da9))+row(_0x51592e(0x147),antitagStatus(_0x9a9da9))+row(_0x51592e(0x10d),antigmStatus(_0x9a9da9))+row('Anti\x20Link',antilinkStatus(_0x9a9da9))+_0x51592e(0x122)+row(_0x51592e(0x121),afkStatus())+row(_0x51592e(0x13a),asscmdStatus())+row(_0x51592e(0x15b),autoStickerStatus(_0x9a9da9))+row('Auto\x20Voice',autoVoiceStatus(_0x9a9da9))+row(_0x51592e(0x116),'_'+_0x1218a8+'_')+'\x0a⌘\x20⿻\x20*𝗖𝗥𝗬𝗦𝗡☉𝗩𝗔\x20𝗔𝗜*\x20⿻\x20⌘',{contextInfo:_0x34b3d4,fakeQuoted:_0x1bfe64}=getVerifiedContext();await _0x1b905f[_0x51592e(0x142)](_0x4c1397[_0x51592e(0x15e)],{'image':{'url':_0x51592e(0x141)},'caption':_0x2043d1,'contextInfo':_0x34b3d4},{'quoted':_0x1bfe64});}};
+// stats.js — rewritten clean so every var is read live and shows what it's
+// actually configured to. No more obfuscated mess. @crysnovax—FIX06-08-26
+const { getVar, allVars } = require('../../Plugin/configManager');
+const { getFont } = require('../Bot/botfont.js');
+const path = require('path');
+const fs = require('fs');
+
+const readDb = (name) => {
+    try {
+        return JSON.parse(fs.readFileSync(path.join(process.cwd(), 'database', name), 'utf8'));
+    } catch {
+        return {};
+    }
+};
+
+const on = (v) => {
+    if (v === undefined || v === null || v === '') return '—';
+    if (v === true || v === 'true' || v === 'on' || v === 'yes' || v === 1 || v === '1') return '✓ ON';
+    if (v === false || v === 'false' || v === 'off' || v === 'no' || v === 0 || v === '0') return '✘ OFF';
+    return String(v);
+};
+
+const fmtMs = (ms) => {
+    const s = Math.floor(ms / 1000);
+    const m = Math.floor(s / 60);
+    const h = Math.floor(m / 60);
+    const d = Math.floor(h / 24);
+    if (d > 0) return `${d}d ${h % 24}h`;
+    if (h > 0) return `${h}h ${m % 60}m`;
+    return `${m}m ${s % 60}s`;
+};
+
+const row = (label, value, width = 22) =>
+    `❏◦ ${label}${'·'.repeat(Math.max(1, width - String(label).length))} ${value}\n`;
+
+function uptimeFromStats() {
+    const start = global.crysStats?.startTime || Date.now() - process.uptime() * 1000;
+    return fmtMs(Date.now() - start);
+}
+
+module.exports = {
+    name: 'stats',
+    alias: ['botinfo', 'status', 'st'],
+    desc: 'Show full bot statistics and every configured variable',
+    category: 'System',
+    ownerOnly: true,
+    reactions: { start: '📊', success: '❔' },
+
+    execute: async (sock, m, { reply }) => {
+        const chat = m.chat;
+        const font = getFont(chat) || 'default';
+        const prefix = getVar('PREFIX', '.');
+        const tz = getVar('TIMEZONE', 'Africa/Lagos');
+        const lang = getVar('BOT_LANG', getVar('BOTLANG', 'en')) || 'en';
+        const cfg = require('../../../settings/config');
+        const botName = cfg.settings?.title || 'CODY AI';
+        const botNum = (sock.user?.id || '').split(':')[0];
+        const publicMode = cfg.status?.public ? '_*Public 彡*_' : '_*Private*_';
+
+        const anti = (file) => {
+            const data = readDb(file);
+            const g = data[chat];
+            return g?.enabled ? '✓ ON' : '✘ OFF';
+        };
+
+        let text = `⌘ ⿻ *B⎔T STATISTICS* ⿻ ⌘\n\n`;
+        text += `𒆜 ಠ_ಠ *BⓘT INFO*\n𓀀\n`;
+        text += row('Bot Name', botName);
+        text += row('Number', botNum || '—');
+        text += row('Mode', publicMode);
+        text += row('Prefix', `[ ${prefix} ]`);
+        text += row('Font', font);
+        text += row('Language', lang);
+        text += row('Timezone', tz);
+        text += `𒆜 ⚔ *PERFORMANCE*\n𓅓\n`;
+        text += row('Uptime', uptimeFromStats());
+        text += row('Messages', String(global.crysStats?.messages || 0));
+        text += row('Commands', String(global.crysStats?.commands || 0));
+        text += `𒆜 ⌘ *CORE TOGGLES*\n𓄂ᬼ𓆃\n`;
+        text += row('Auto Read', on(getVar('AUTO_READ', true)));
+        text += row('Anti Call', on(getVar('ANTI_CALL', true)));
+        text += row('Cmd React', on(getVar('CMD_REACT', getVar('AUTO_REACT', true))));
+        text += row('Auto React', on(require('../Owner/autoreact.js').isEnabled()));
+        text += row('Fake Typing', on(getVar('FAKE_TYPING', 'off')));
+        text += row('Status View', on(getVar('AUTO_STATUS_VIEW', true)));
+        text += row('Status Like', on(getVar('AUTO_STATUS_LIKE', true)));
+        text += row('Auto Record', on(getVar('AUTO_RECORDING', false)));
+        text += row('DND', on(getVar('DND', false)));
+        text += row('Save Mode', on(getVar('SAVE_MODE', false)));
+        text += row('Auto Approve', on(getVar('AUTO_APPROVE', false)));
+        text += row('Pack Name', getVar('PACK_NAME') || 'not set');
+        text += `𒆜 彡 *PROTECTION* (this chat)\n𓅓\n`;
+        text += row('Anti Delete', anti('antidelete.json'));
+        text += row('Anti Edit', anti('antiedit.json'));
+        text += row('Anti Word', anti('antiword.json'));
+        text += row('Anti Tag', anti('antitag.json'));
+        text += row('Anti GM', anti('antigm.json'));
+        text += row('Anti Link', anti('antilink.json'));
+        text += row('Anti Spam', anti('antispam.json'));
+
+        const vars = allVars();
+        const varKeys = Object.keys(vars);
+        if (varKeys.length) {
+            text += `𒆜 ✪ *RUNTIME VARS* (${varKeys.length})\n𓅓\n`;
+            for (const k of varKeys) {
+                let v = vars[k];
+                if (v && typeof v === 'object') {
+                    try { v = JSON.stringify(v); } catch { v = '[object]'; }
+                }
+                v = String(v);
+                if (v.length > 42) v = v.slice(0, 42) + '…';
+                text += row(k, v, 26);
+            }
+        }
+
+        text += `\n⌘ ⿻ *𝗖𝗥𝗬𝗦𝗡☉𝗩𝗔 𝗔𝗜* ⿻ ⌘`;
+        return reply(text);
+    }
+};

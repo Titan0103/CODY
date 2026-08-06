@@ -66,6 +66,7 @@ module.exports = {
             else if (cfg.action === 'warn') actionDisplay = '⚠︎ WARN (3x → KICK)';
             else if (cfg.action === 'kick') actionDisplay = 'ಠ_ಠ KICK';
             else if (cfg.action === 'mute') actionDisplay = '🔇 MUTE';
+            else if (cfg.action === 'tkick') actionDisplay = '⏱️ TEMP KICK (' + (cfg.tkickDuration || '5m') + ')';
             
             return reply(
                 `⚠︎ *Anti Spam Settings*\n\n` +
@@ -79,6 +80,7 @@ module.exports = {
                 `• .antispam delete → delete only\n` +
                 `• .antispam warn → delete + warn (3x = kick)\n` +
                 `• .antispam kick → delete + immediate kick\n` +
+                `• .antispam tkick 5m → delete + temp kick\n` +
                 `• .antispam mute → delete + mute\n` +
                 `• .antispam max <number>\n` +
                 `• .antispam time <seconds>\n` +
@@ -95,6 +97,7 @@ module.exports = {
             else if (db[group].action === 'warn') actionText = '⚠︎ WARN (3x → KICK)';
             else if (db[group].action === 'kick') actionText = 'ಠ_ಠ KICK';
             else if (db[group].action === 'mute') actionText = '🔇 MUTE';
+            else if (db[group].action === 'tkick') actionText = '⏱️ TEMP KICK (' + (db[group].tkickDuration || '5m') + ')';
             return reply(`*⟁⃝⚠︎ Anti Spam ON*\nAction: ${actionText}\nMax ${db[group].maxMessages} msgs in ${db[group].timeWindow / 1000}s`);
         }
         if (sub === 'off') {
@@ -116,6 +119,13 @@ module.exports = {
             db[group].action = 'kick';
             saveDB(db);
             return reply('_*✓ Action → KICK*_ (immediate removal)');
+        }
+        if (sub === 'tkick') {
+            db[group].action = 'tkick';
+            const durArg = args[1];
+            db[group].tkickDuration = (durArg && /^\d+(s|m|h|d)$/i.test(durArg)) ? durArg : '5m';
+            saveDB(db);
+            return reply(`_*✓ Action → TEMP KICK*_ (auto re-added after ${db[group].tkickDuration})`);
         }
         if (sub === 'mute') {
             db[group].action = 'mute';
@@ -156,7 +166,7 @@ module.exports = {
             return reply(`User has no warnings.`);
         }
 
-        reply('ಠ_ಠ _*Usage: .antispam on | off | delete | warn | kick | mute | max <n> | time <s> | duration <s> | resetwarn @user*_');
+        reply('ಠ_ಠ _*Usage: .antispam on | off | delete | warn | kick | tkick 5m | mute | max <n> | time <s> | duration <s> | resetwarn @user*_');
     }
 };
 
@@ -298,6 +308,21 @@ module.exports.handleAntiSpam = async function(sock, m) {
                 await sock.groupParticipantsUpdate(group, [sender], 'remove').catch(() => {});
                 groupCache.delete(sender);
                 console.log(`[ANTI SPAM] Kicked: ${sender.split('@')[0]}`);
+            }
+            else if (action === 'tkick') {
+                // temp kick — auto re-added after the duration (@crysnovax—FIX06-08-26)
+                const { tkick, parseTime } = require('../../Plugin/tkick');
+                const durText = db[group].tkickDuration || '5m';
+                const durMs = parseTime(durText) || 5 * 60 * 1000;
+
+                await sock.sendMessage(group, {
+                    text: `_⏱️ @${sender.split('@')[0]} *TEMP KICKED for spamming!*_\n\n_${userData.count} messages in ${timeWindow / 1000}s_\n_Auto re-added after ${durText}._`,
+                    mentions: [sender]
+                }).catch(() => {});
+
+                await tkick(sock, group, sender, durMs, 'spamming (antispam)');
+                groupCache.delete(sender);
+                console.log(`[ANTI SPAM] Temp kicked: ${sender.split('@')[0]}`);
             }
 
             // Reset count after action

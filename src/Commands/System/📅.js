@@ -118,7 +118,8 @@ module.exports = {
             safeFs.remove(CONFIG.tempDir);
             await edit(100);
 
-            // Restart
+            // Restart — carry the uptime over so updates don't reset it (@crysnovax—FIX06-08-26)
+            try { require('../../Plugin/uptime').markUpdateRestart(); } catch (e) {}
             setTimeout(() => process.exit(0), 1000);
 
         } catch (err) {

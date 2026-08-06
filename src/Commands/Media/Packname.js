@@ -1,6 +1,7 @@
 const { downloadContentFromMessage } = require('@crysnovax/baileys');
 // Pure-JS exif writer (node-webpmux) instead of wa-sticker-formatter -> sharp.
 const { addExif } = require('../../../library/exif');
+const { getPackName } = require('../../Plugin/packname');
 const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -42,9 +43,9 @@ module.exports = {
             let finalBuffer = buffer;
             let quality = 80; // start high
 
-            // Helper to apply metadata (pure-JS, no sharp)
+            // Helper to apply metadata (pure-JS, no sharp) — pack forced to ⚉ • <PACK_NAME> when set (@crysnovax—FIX06-08-26)
             const reencodeWithQuality = async () => {
-                return await addExif(buffer, 'CRYSNOVA AI', author, ['🔥']);
+                return await addExif(buffer, getPackName() || 'CRYSNOVA AI', author, ['🔥']);
             };
 
             // If original is already under 500 KB, just apply metadata with high quality
@@ -89,7 +90,7 @@ module.exports = {
 
                     // Now apply metadata
                     if (finalBuffer.length / 1024 <= 500) {
-                        finalBuffer = await addExif(finalBuffer, 'CRYSNOVA AI', author, ['🔥']);
+                        finalBuffer = await addExif(finalBuffer, getPackName() || 'CRYSNOVA AI', author, ['🔥']);
                     }
                 }
 

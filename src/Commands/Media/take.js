@@ -2,6 +2,7 @@ const { downloadContentFromMessage } = require('@crysnovax/baileys');
 // Pure-JS exif writer (node-webpmux). Avoids wa-sticker-formatter -> sharp,
 // which crashes on hosts without a prebuilt sharp binary.
 const { addExif } = require('../../../library/exif');
+const { getPackName } = require('../../Plugin/packname');
 
 module.exports = {
     name: 'take',
@@ -28,8 +29,8 @@ module.exports = {
                 buffer = Buffer.concat([buffer, chunk]);
             }
 
-            // Re-brand with CRYSNOVA AI metadata (animated stickers preserved)
-            buffer = await addExif(buffer, 'CRYSNOVA AI', 'crysnovax', ['🔥']);
+            // Re-brand — pack forced to ⚉ • <PACK_NAME> when set (@crysnovax—FIX06-08-26)
+            buffer = await addExif(buffer, getPackName() || 'CRYSNOVA AI', 'crysnovax', ['🔥']);
 
             await sock.sendMessage(m.chat, { sticker: buffer }, { quoted: m });
 
