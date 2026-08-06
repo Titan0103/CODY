@@ -12,7 +12,7 @@ module.exports = {
     execute: async (sock, m, { args, reply, prefix, groupMeta }) => {
         const confirm = (args[0] || '').toLowerCase();
         if (confirm !== 'yes' && confirm !== 'confirm') {
-            return reply(`_⚠️ This will BLOCK every non-admin in this group._\n\nType: ${prefix}blockall yes`);
+            return reply(`_˗ˏˋ ☏ ˎˊ˗ This will BLOCK every non-admin in this group._\n\nType: ${prefix}blockall yes`);
         }
 
         const meta = groupMeta || await sock.groupMetadata(m.chat).catch(() => null);
