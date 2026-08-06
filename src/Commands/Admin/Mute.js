@@ -8,7 +8,7 @@ module.exports = {
     category: 'Admin',
     groupOnly: true,
     adminOnly: true,
-    reactions: { start: '🔇', success: '✦' },
+    reactions: { start: '🔇', success: '🥀' },
 
     setupMuteSchedules: core.setupMuteSchedules,
 
