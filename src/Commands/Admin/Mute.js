@@ -25,7 +25,7 @@ module.exports = {
                 core.activeCrons[s.id]?.stop();
                 delete core.activeCrons[s.id];
             }
-            return reply(`${prefix}✦ ${removedlength} schedule(s) cancelled for this group`);
+            return reply(`✦ ${removed.length} schedule(s) cancelled for this group`);
         }
 
         // ── SHOW SCHEDULES ────────────────────────────────────

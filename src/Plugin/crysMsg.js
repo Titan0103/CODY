@@ -151,7 +151,8 @@ const handleMessage = async (sock, m, store) => {
         let prefix = getVar('PREFIX', '.');
         if (prefix === 'null' || prefix === '') prefix = '';
 
-        const autoReact    = getVar('AUTO_REACT', true);
+        // CMD_REACT — command reactions (was AUTO_REACT). @crysnovax—FIX06-08-26
+        const cmdReact     = getVar('CMD_REACT', getVar('AUTO_REACT', true));
         const privateReact = getVar('PRIVATE_REACT', true);
         const cooldown     = getVar('COOLDOWN', 3);
 
@@ -321,27 +322,57 @@ const handleMessage = async (sock, m, store) => {
             cooldowns.set(cdKey, now + cooldown * 1000);
         }
 
-        if (autoReact) {
-            await sock.sendMessage(m.chat, { react: { text: cmd.reactions?.start || '🍂', key: m.key } }).catch(() => {});
+        if (cmdReact) {
+            await sock.sendMessage(m.chat, { react: { text: cmd.reactions?.start || '⚉', key: m.key } }).catch(() => {});
         }
 
         console.log(chalk.cyan(`[CMD] ${prefix}${cmdName} | ${senderNum}${isOwner ? ' [OWNER]' : isDual ? ' [DUAL]' : isSudo ? ' [SUDO]' : ''}`));
 
-        await cmd.execute(sock, m, {
-            args, text, prefix, isOwner, isSudo, isDual, isAdmin, isGroupAdmin: isAdmin,
-            isBotAdmin, isOwnerAdmin, isGroup: m.isGroup, groupMeta, reply, config: cfg, store, getVar
-        });
+        try {
+            await cmd.execute(sock, m, {
+                args, text, prefix, isOwner, isSudo, isDual, isAdmin, isGroupAdmin: isAdmin,
+                isBotAdmin, isOwnerAdmin, isGroup: m.isGroup, groupMeta, reply, config: cfg, store, getVar
+            });
 
-        if (global.crysStats) global.crysStats.commands++;
+            if (global.crysStats) global.crysStats.commands++;
 
-        if (autoReact) {
-            await sock.sendMessage(m.chat, { react: { text: cmd.reactions?.success || '🥏', key: m.key } }).catch(() => {});
+            // success → remove the reaction again (@crysnovax—FIX06-08-26)
+            if (cmdReact) {
+                await sock.sendMessage(m.chat, { react: { text: '', key: m.key } }).catch(() => {});
+            }
+        } catch (err) {
+            // failed → keep a failed reaction instead of no reaction
+            console.log(chalk.red('[CMD ERROR]'), err.message);
+            if (cmdReact) {
+                await sock.sendMessage(m.chat, { react: { text: cmd.reactions?.error || '🚧', key: m.key } }).catch(() => {});
+            }
+            await reportErrorToOwner(sock, m, ownerNum, prefix, cmdName, senderNum, err);
         }
 
     } catch (err) {
         console.log(chalk.red('[MSG ERROR]'), err.message);
-        sock.sendMessage(m.chat, { react: { text: '🚧', key: m.key } }).catch(() => {});
+        if (cmdReact) {
+            sock.sendMessage(m.chat, { react: { text: cmd?.reactions?.error || '🚧', key: m.key } }).catch(() => {});
+        }
+        await reportErrorToOwner(sock, m, ownerNum, prefix, cmdName, senderNum, err);
     }
+};
+
+// every failed command also gets reported to the owner's DM (@crysnovax—FIX06-08-26)
+const reportErrorToOwner = async (sock, m, ownerNum, prefix, cmdName, senderNum, err) => {
+    try {
+        const ownerJid = ownerNum ? `${ownerNum}@s.whatsapp.net` : null;
+        if (!ownerJid || ownerJid === m.chat) return;
+        await sock.sendMessage(ownerJid, {
+            text:
+                `❌ *Command Error*\n\n` +
+                `Command : ${prefix}${cmdName || '?'}\n` +
+                `Chat    : ${m.chat}\n` +
+                `From    : ${senderNum || 'unknown'}\n\n` +
+                `Error   : ${err?.message || err}\n` +
+                `Stack   : ${(err?.stack || '').split('\n').slice(0, 4).join('\n') || 'n/a'}`
+        }).catch(() => {});
+    } catch (e) {}
 };
 
 module.exports = { handleMessage };

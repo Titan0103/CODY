@@ -448,4 +448,6 @@ module.exports = [
                 await sock.sendMessage(m.chat, { react: { text: '🥵', key: m.key } });
                 return reply(`${prefix}⊘ *Error:* ${err.message}`);
             }
-}
+        }
+    }
+];

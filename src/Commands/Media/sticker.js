@@ -5,6 +5,7 @@ const { exec } = require('child_process');
 // which pulls in the native "sharp" module and crashes on hosts without a
 // prebuilt sharp binary (e.g. bot-hosting.net linux-x64).
 const { addExif } = require('../../../library/exif');
+const { getPackName } = require('../../Plugin/packname');
 
 module.exports = {
     name: 'sticker',
@@ -88,8 +89,8 @@ module.exports = {
             // Read the generated WebP
             let buffer = fs.readFileSync(output);
 
-            // Add sticker metadata (pack/author) without the native sharp dep
-            buffer = await addExif(buffer, 'CRYSNOVA AI', 'crysnovax', ['🔥']);
+            // Add sticker metadata (pack/author) — pack forced to ⚉ • <PACK_NAME> when set (@crysnovax—FIX06-08-26)
+            buffer = await addExif(buffer, getPackName() || 'CRYSNOVA AI', 'crysnovax', ['🔥']);
 
             // Send the sticker
             await sock.sendMessage(m.chat, { sticker: buffer }, { quoted: m });

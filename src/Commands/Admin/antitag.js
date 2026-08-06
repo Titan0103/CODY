@@ -88,6 +88,7 @@ module.exports = {
             if (cfg.action === 'delete') actionDisplay = ' ꙰⊕ DELETE';
             else if (cfg.action === 'warn') actionDisplay = '⚠︎ WARN (3x → KICK)';
             else if (cfg.action === 'kick') actionDisplay = 'ಠ_ಠ KICK';
+            else if (cfg.action === 'tkick') actionDisplay = '⏱️ TEMP KICK (' + (cfg.tkickDuration || '5m') + ')';
             
             return reply(
                 `☠︎︎ *Anti Tag Settings*\n\n` +
@@ -100,6 +101,7 @@ module.exports = {
                 `❏• .antitag delete → delete only\n` +
                 `❏• .antitag warn → delete + warn (3x = kick)\n` +
                 `❏• .antitag kick → delete + immediate kick\n` +
+                `❏• .antitag tkick 5m → delete + temp kick\n` +
                 `❏• .antitag min 3 → set minimum mentions\n` +
                 `❏• .antitag resetwarn @user`
             );
@@ -112,6 +114,7 @@ module.exports = {
             if (db[group].action === 'delete') actionText = ' ꙰⊕ DELETE';
             else if (db[group].action === 'warn') actionText = '⚠︎ WARN (3x → KICK)';
             else if (db[group].action === 'kick') actionText = 'ಠ_ಠ KICK';
+            else if (db[group].action === 'tkick') actionText = '⏱️ TEMP KICK (' + (db[group].tkickDuration || '5m') + ')';
             return reply(`${prefix}_*亗 Anti tag*_ _*ON*_\n_*Action:*_ *${actionText}*\nMin mentions: *${db[group].minTags}*\n\n_Mass tagging will be deleted_`);
         }
         if (sub === 'off') {
@@ -134,6 +137,13 @@ module.exports = {
             saveDB(db);
             return reply('_*✓ Action →*_ *KICK* (immediate removal)');
         }
+        if (sub === 'tkick') {
+            db[group].action = 'tkick';
+            const durArg = args[1];
+            db[group].tkickDuration = (durArg && /^\d+(s|m|h|d)$/i.test(durArg)) ? durArg : '5m';
+            saveDB(db);
+            return reply(`_*✓ Action →*_ *TEMP KICK* (auto re-added after ${db[group].tkickDuration})`);
+        }
         if (sub === 'min' && args[1]) {
             const num = parseInt(args[1]);
             if (isNaN(num) || num < 1) return reply('_*ಠ_ಠ Must be a number greater than 0*_');
@@ -154,7 +164,7 @@ module.exports = {
             return reply(`✘ User has no warnings.`);
         }
 
-        reply('ಠ_ಠ _*Usage: .antitag on | off | delete | warn | kick | min <number> | resetwarn @user*_');
+        reply('ಠ_ಠ _*Usage: .antitag on | off | delete | warn | kick | tkick 5m | min <number> | resetwarn @user*_');
     }
 };
 
@@ -258,6 +268,19 @@ module.exports.handleAntiTag = async function(sock, m) {
                 mentions: [sender]
             });
             await sock.groupParticipantsUpdate(group, [sender], 'remove').catch(() => {});
+        }
+        else if (action === 'tkick') {
+            // temp kick — auto re-added after the duration (@crysnovax—FIX06-08-26)
+            const { tkick, parseTime } = require('../../Plugin/tkick');
+            const durText = cfg.tkickDuration || '5m';
+            const durMs = parseTime(durText) || 5 * 60 * 1000;
+
+            await sock.sendMessage(group, {
+                text: `_⏱️ @${sender.split('@')[0]} *TEMP KICKED for mass tagging!*_\n\n_${triggerReason}_\n_Auto re-added after ${durText}._`,
+                mentions: [sender]
+            });
+
+            await tkick(sock, group, sender, durMs, 'mass tagging (antitag)');
         }
 
         console.log(`[ANTI TAG] ${action} → ${sender.split('@')[0]} | ${triggerReason}`);

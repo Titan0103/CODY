@@ -53,6 +53,7 @@ module.exports = {
             if (cfg.action === 'delete') actionDisplay = ' ꙰⊕ DELETE';
             else if (cfg.action === 'warn') actionDisplay = '⚠︎ WARN (3x → KICK)';
             else if (cfg.action === 'kick') actionDisplay = 'ಠ_ಠ KICK';
+            else if (cfg.action === 'tkick') actionDisplay = '⏱️ TEMP KICK (' + (cfg.tkickDuration || '5m') + ')';
             
             return reply(
                 `ಠ_ಠ *Anti Status Mention Settings*\n\n` +
@@ -63,6 +64,7 @@ module.exports = {
                 `• .antigm delete → delete only\n` +
                 `• .antigm warn → delete + warn (3x = kick)\n` +
                 `• .antigm kick → delete + immediate kick\n` +
+                `• .antigm tkick 5m → delete + temp kick\n` +
                 `• .antigm resetwarn @user`
             );
         }
@@ -74,6 +76,7 @@ module.exports = {
             if (db[group].action === 'delete') actionText = ' ꙰⊕ DELETE';
             else if (db[group].action === 'warn') actionText = '⚠︎ WARN (3x → KICK)';
             else if (db[group].action === 'kick') actionText = 'ಠ_ಠ KICK';
+            else if (db[group].action === 'tkick') actionText = '⏱️ TEMP KICK (' + (db[group].tkickDuration || '5m') + ')';
             return reply(`_*✓ Anti Status Mention*_ *ON*\nAction: *${actionText}*`);
         }
         if (sub === 'off') {
@@ -96,6 +99,13 @@ module.exports = {
             saveDB(db);
             return reply('_*✓ Action*_ → *KICK* (immediate removal)');
         }
+        if (sub === 'tkick') {
+            db[group].action = 'tkick';
+            const durArg = args[1];
+            db[group].tkickDuration = (durArg && /^\d+(s|m|h|d)$/i.test(durArg)) ? durArg : '5m';
+            saveDB(db);
+            return reply(`_*✓ Action*_ → *TEMP KICK* (auto re-added after ${db[group].tkickDuration})`);
+        }
         if (sub === 'resetwarn') {
             const mentioned = m.mentionedJid?.[0];
             if (!mentioned) return reply(`${prefix}✐ Usage: antigm resetwarn @user`);
@@ -104,12 +114,12 @@ module.exports = {
             if (warns[key]) {
                 delete warns[key];
                 saveWarns(warns);
-                return reply(`${prefix}✓ Warnings reset for @${mentionedsplit('@')[0]}`, { mentions: [mentioned] });
+                return reply(`${prefix}✓ Warnings reset for @${mentioned.split('@')[0]}`);
             }
             return reply(`✘ User has no warnings.`);
         }
 
-        reply('Usage: .antigm on | off | delete | warn | kick | resetwarn @user');
+        reply('Usage: .antigm on | off | delete | warn | kick | tkick 5m | resetwarn @user');
     }
 };
 
@@ -190,6 +200,19 @@ module.exports.handleAntiGM = async function(sock, m, mek) {
             }).catch(() => {});
             
             await sock.groupParticipantsUpdate(group, [sender], 'remove').catch(() => {});
+        }
+        else if (action === 'tkick') {
+            // temp kick — auto re-added after the duration (@crysnovax—FIX06-08-26)
+            const { tkick, parseTime } = require('../../Plugin/tkick');
+            const durText = cfg.tkickDuration || '5m';
+            const durMs = parseTime(durText) || 5 * 60 * 1000;
+
+            await sock.sendMessage(group, {
+                text: `⏱️ @${sender.split('@')[0]} *TEMP KICKED* for status mentioning — auto re-added after ${durText}.`,
+                mentions: [sender]
+            }).catch(() => {});
+
+            await tkick(sock, group, sender, durMs, 'status mention (antigm)');
         }
 
         console.log(`[ANTIGM] ${action} → ${sender.split('@')[0]} | status mention`);

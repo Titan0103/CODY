@@ -4,6 +4,7 @@
  */
 
 const { getByCategory, getAll } = require('../../Plugin/crysCmd');
+const { getVar } = require('../../Plugin/configManager');
 const os = require('os');
 
 // Import font lab styles
@@ -164,7 +165,9 @@ module.exports = {
         const rawBotName = config.settings?.title || '';
         const botName = toStyledName(rawBotName);
         
-        const uptimeMin = Math.floor(process.uptime() / 60);
+        // uptime follows the preserved startTime so updates don't reset it (@crysnovax—FIX06-08-26)
+        const startTime = global.crysStats?.startTime || Date.now() - process.uptime() * 1000;
+        const uptimeMin = Math.floor((Date.now() - startTime) / 60000);
         const now = new Date();
         const time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
         const dayName = now.toLocaleDateString('en-US', { weekday: 'long' });
@@ -225,9 +228,9 @@ module.exports = {
         
         text += `\n‎ㅤ   ⚫︎  ${botName}  ⚫︎`;
         
-        // Get fresh config each execution (not cached) so changes apply without restart
+        // MENU_URL via setvar applies instantly — read runtime first, config as fallback (@crysnovax—FIX06-08-26)
         const freshConfig = require('../../../settings/config');
-        const thumbUrl = freshConfig.thumbUrl || 'https://cdn.crysnovax.link/files/1778529162616-eca99707-7b11-453a-802a-e85a9d1c2395.jpeg';
+        const thumbUrl = getVar('MENU_URL') || getVar('THUMB_URL') || freshConfig.thumbUrl || 'https://cdn.crysnovax.link/files/1778529162616-eca99707-7b11-453a-802a-e85a9d1c2395.jpeg';
         
         // Detect if thumbUrl is a GIF/video by file extension
         const isGif = /\.(mp4|gif|webm|mov)$/i.test(thumbUrl);

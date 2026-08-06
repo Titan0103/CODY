@@ -13,7 +13,8 @@ const handleMessage = async (sock, m, store) => {
 
         /* ⭐ Runtime prefix (READ PER MESSAGE) */
         const prefix = getVar('PREFIX', '.');
-        const autoReact = getVar('AUTO_REACT', true);
+        // CMD_REACT — command reactions (was AUTO_REACT). @crysnovax—FIX06-08-26
+        const cmdReact = getVar('CMD_REACT', getVar('AUTO_REACT', true));
         const cooldown = getVar('COOLDOWN', 3);
 
         const config = () => require('../../settings/config');
@@ -58,7 +59,7 @@ const handleMessage = async (sock, m, store) => {
 
         /* Permission checks */
         if (!config().status.public && !isOwner) {
-            if (autoReact)
+            if (cmdReact)
                 sock.sendMessage(m.chat, {
                     react: { text: '⚉', key: m.key }
                 }).catch(() => {});
@@ -85,57 +86,71 @@ const handleMessage = async (sock, m, store) => {
             const exp = cooldowns.get(key);
 
             if (exp && now < exp) {
-                return reply(`${prefix}⏳ Wait ${((exp - now) / 1000)toFixed(1)}s`);
+                return reply(`${prefix}⏳ Wait ${((exp - now) / 1000).toFixed(1)}s`);
             }
 
             cooldowns.set(key, now + cooldown * 1000);
         }
 
         /* Reaction Start */
-        if (autoReact) {
-
-            const startReact = cmd.reactions?.start || '✨';
-
+        if (cmdReact) {
             sock.sendMessage(m.chat, {
-                react: { text: startReact, key: m.key }
+                react: { text: cmd.reactions?.start || '✨', key: m.key }
             }).catch(() => {});
         }
 
         console.log(chalk.cyan(`[CMD] .${cmdName} | ${m.sender?.split('@')[0]}`));
 
         /* Execute Command */
-        await cmd.execute(sock, m, {
-            args,
-            text,
-            prefix,
-            isOwner,
-            isAdmin,
-            isBotAdmin,
-            isGroup: m.isGroup,
-            groupMeta,
-            reply,
-            config: config(),
-            store,
-            getVar
-        });
+        try {
+            await cmd.execute(sock, m, {
+                args,
+                text,
+                prefix,
+                isOwner,
+                isAdmin,
+                isBotAdmin,
+                isGroup: m.isGroup,
+                groupMeta,
+                reply,
+                config: config(),
+                store,
+                getVar
+            });
 
-        /* Reaction Success */
-        if (autoReact) {
-
-            const successReact = cmd.reactions?.success || '👽';
-
-            sock.sendMessage(m.chat, {
-                react: { text: successReact, key: m.key }
-            }).catch(() => {});
+            /* success → remove the reaction again (@crysnovax—FIX06-08-26) */
+            if (cmdReact) {
+                sock.sendMessage(m.chat, {
+                    react: { text: '', key: m.key }
+                }).catch(() => {});
+            }
+        } catch (err) {
+            /* failed → keep a failed reaction + report to owner DM */
+            console.log(chalk.red('[CMD ERROR]'), err.message);
+            if (cmdReact) {
+                sock.sendMessage(m.chat, {
+                    react: { text: cmd.reactions?.error || '🙈', key: m.key }
+                }).catch(() => {});
+            }
+            try {
+                const ownerJid = ownerNum ? `${ownerNum}@s.whatsapp.net` : null;
+                if (ownerJid && ownerJid !== m.chat) {
+                    sock.sendMessage(ownerJid, {
+                        text: `❌ *Command Error*\n\nCommand : ${prefix}${cmdName}\nError   : ${err.message || err}`
+                    }).catch(() => {});
+                }
+            } catch (e) {}
         }
 
     } catch (err) {
 
         console.log(chalk.red('[MSG ERROR]'), err.message);
 
-        sock.sendMessage(m.chat, {
-            react: { text: '🙈', key: m.key }
-        }).catch(() => {});
+        if (cmdReact) {
+            sock.sendMessage(m.chat, {
+                react: { text: '🙈', key: m.key }
+            }).catch(() => {});
+        }
     }
 };
 

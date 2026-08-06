@@ -112,6 +112,9 @@ async function performUpdate(options = {}) {
         safeFs.remove(CONFIG.tempDir);
         log('Update completed successfully!');
 
+        // uptime carries over through the update restart (@crysnovax—FIX06-08-26)
+        try { require('./uptime').markUpdateRestart(); } catch (e) {}
+
         return { success: true };
 
     } catch (err) {

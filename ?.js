@@ -45,6 +45,15 @@ const ignoredErrors = [
 
 module.exports = function setupMessageHandler(sock, customStore, handleMessage, smsg, io, config) {
 
+    // carry uptime over from an update restart (@crysnovax—FIX06-08-26)
+    try {
+        if (global.crysStats) require('./src/Plugin/uptime').restoreOnBoot(global.crysStats);
+    } catch (e) {}
+
+    // restore pending temp kicks + start join-request auto-approval (@crysnovax—FIX06-08-26)
+    try { require('./src/Plugin/tkick').setupTkicks(sock); } catch (e) { console.error('[TKICK] restore error:', e.message); }
+    try { require('./src/Plugin/autoApprove').setupAutoApprove(sock); } catch (e) { console.error('[AUTO-APPROVE] init error:', e.message); }
+
 const originalSend = sock.sendMessage.bind(sock);
 sock.sendMessage = async (jid, content, options = {}) => {
     try {
@@ -238,6 +247,17 @@ setupPromotionGuard(sock);
             const m = await smsg(sock, mek, customStore);
             if (!m) return;
 
+            // ── SAVE MODE — auto-block unsaved contacts that DM the bot (@crysnovax—FIX06-08-26) ──
+            try {
+                if (getVar('SAVE_MODE', false)) {
+                    const savemode = require('./src/Commands/Owner/savemode.js');
+                    if (savemode?.handleSaveMode) {
+                        const wasBlocked = await savemode.handleSaveMode(sock, m, customStore);
+                        if (wasBlocked) return;
+                    }
+                }
+            } catch {}
+
             try {
                 const antiedit = require('./src/Commands/Tools/antiedit.js');
                 if (antiedit?.cacheOriginal) antiedit.cacheOriginal(mek.key.id, mek.message);
@@ -292,6 +312,16 @@ setupPromotionGuard(sock);
                 }
             } catch {}
 
+            // full sticker mute per user (@crysnovax—FIX06-08-26)
+            try {
+                const muteallsticker = require('./src/Commands/Group/muteallsticker.js');
+                if (muteallsticker?.handleMutedSticker) {
+                    const wasDeleted = await muteallsticker.handleMutedSticker(sock, m, m.isGroup);
+                    if (wasDeleted) return;
+                }
+            } catch {}
+
+            // single-sticker ban — only that exact sticker gets deleted (@crysnovax—FIX06-08-26)
             try {
                 const mutesticker = require('./src/Commands/Group/mutesticker.js');
                 if (mutesticker?.handleMutedSticker) {
@@ -367,6 +397,12 @@ try {
             try {
                 const antitag = require('./src/Commands/Admin/antitag.js');
                 if (antitag?.handleAntiTag) await antitag.handleAntiTag(sock, m);
+            } catch {}
+
+            // ── DND — delete + reply when the bot is tagged (@crysnovax—FIX06-08-26) ──
+            try {
+                const dnd = require('./src/Commands/Group/dnd.js');
+                if (dnd?.handleDndTag) await dnd.handleDndTag(sock, m);
             } catch {}
 
             // ── STICKER COMMAND HANDLER (dynamic prefix) ──
