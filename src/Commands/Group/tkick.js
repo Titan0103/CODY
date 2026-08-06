@@ -12,7 +12,7 @@ module.exports = {
     reactions: { start: '⏱️', success: '🔁' },
 
     execute: async (sock, m, { args, reply, prefix, isBotAdmin }) => {
-        if (!isBotAdmin) return reply('_𓉤 Make me an admin first_');
+        if (!isAdmin) return reply('_𓉤 Make me an admin first_');
 
         const sub = (args[0] || '').toLowerCase();
 
@@ -49,7 +49,7 @@ module.exports = {
         await tkick(sock, m.chat, targetJid, ms, reason);
         return sock.sendMessage(m.chat, {
             text:
-                `_*⏱️ TEMP KICK*_\n\n` +
+                `_*ᯤ TEMP KICK*_\n\n` +
                 `✦ Target  : @${targetJid.split('@')[0]}\n` +
                 `✦ Duration: ${timeArg || '5m'}\n` +
                 `✦ Reason  : ${reason}\n\n` +
