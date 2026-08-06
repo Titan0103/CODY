@@ -74,7 +74,7 @@ async function scheduleReAdd(sock, group, user) {
         await reAdd(sock, group, user);
         try {
             await sock.sendMessage(group, {
-                text: `🔁 @${user.split('@')[0]} auto re-added after the temp kick`,
+                text: `ᯤ @${user.split('@')[0]} auto re-added after the temp kick`,
                 mentions: [user]
             });
         } catch {}
