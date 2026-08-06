@@ -365,7 +365,7 @@ const reportErrorToOwner = async (sock, m, ownerNum, prefix, cmdName, senderNum,
         if (!ownerJid || ownerJid === m.chat) return;
         await sock.sendMessage(ownerJid, {
             text:
-                `❌ *Command Error*\n\n` +
+                `ᯤ *Command Error*\n\n` +
                 `Command : ${prefix}${cmdName || '?'}\n` +
                 `Chat    : ${m.chat}\n` +
                 `From    : ${senderNum || 'unknown'}\n\n` +
