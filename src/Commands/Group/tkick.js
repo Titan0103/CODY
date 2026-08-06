@@ -11,9 +11,7 @@ module.exports = {
     adminOnly: true,
     reactions: { start: '⏱️', success: '🔁' },
 
-    execute: async (sock, m, { args, reply, prefix, isBotAdmin }) => {
-        if (!isAdmin) return reply('_𓉤 Make me an admin first_');
-
+    execute: async (sock, m, { args, reply, prefix }) => {
         const sub = (args[0] || '').toLowerCase();
 
         // .tkick undo @user — bring someone back right now
@@ -49,10 +47,10 @@ module.exports = {
         await tkick(sock, m.chat, targetJid, ms, reason);
         return sock.sendMessage(m.chat, {
             text:
-                `_*ᯤ TEMP KICK*_\n\n` +
-                `✦ Target  : @${targetJid.split('@')[0]}\n` +
-                `✦ Duration: ${timeArg || '5m'}\n` +
-                `✦ Reason  : ${reason}\n\n` +
+                `*ᯤ TEMP KICK*\n\n` +
+                `⊹ Target  : @${targetJid.split('@')[0]}\n` +
+                `⊹ Duration: ${timeArg || '5m'}\n` +
+                `⊹ Reason  : ${reason}\n\n` +
                 `_They get added back automatically when the timer ends._`,
             mentions: [targetJid]
         }, { quoted: m });
