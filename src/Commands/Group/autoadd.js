@@ -8,7 +8,7 @@ module.exports = {
     desc: 'Auto-approve group join requests (delay + country code filter)',
     category: 'Owner',
     ownerOnly: true,
-    reactions: { start: '✅', success: '👥' },
+    reactions: { start: '🥀', success: '👥' },
 
     execute: async (sock, m, { args, reply, prefix }) => {
         const sub = (args[0] || '').toLowerCase();
