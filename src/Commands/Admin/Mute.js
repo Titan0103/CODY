@@ -35,7 +35,7 @@ module.exports = {
             const text = mine.map(s =>
                 `✦ ${s.action.toUpperCase()} at ${s.time} (${s.once ? 'once' : 'daily'})`
             ).join('\n');
-            return reply(`🕒 *Active Schedules:*\n\n${text}`);
+            return reply(`ᯤ *Active Schedules:*\n\n${text}`);
         }
 
         // ── MUTE FOR <time> ───────────────────────────────────
@@ -112,10 +112,10 @@ module.exports = {
             }
 
             return reply(
-                `🕒 *Mute Schedule Set*\n\n` +
-                `✦ Mute at   : ${startTime}\n` +
-                `✦ Unmute at : ${endTime}\n` +
-                `✦ Repeat    : ${repeat}\n\n` +
+                `ᯤ *Mute Schedule Set*\n\n` +
+                `⊹ Mute at   : ${startTime}\n` +
+                `⊹ Unmute at : ${endTime}\n` +
+                `⊹ Repeat    : ${repeat}\n\n` +
                 `Use .mute cancel to remove`
             );
         }
