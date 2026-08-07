@@ -4,8 +4,9 @@
 const { getVar } = require('./configManager');
 
 function getPackName() {
-    const pack = String(getVar('PACK_NAME') || process.env.PACK_NAME || '').trim();
-    if (!pack) return null;
+    // Branded as "⚉ • <PACK_NAME>" — falls back to CODY AI, never a
+    // hardcoded crysnovax packname (@crysnovax—FIX08-07-26).
+    const pack = String(getVar('PACK_NAME') || process.env.PACK_NAME || '').trim() || 'CODY AI';
     return `⚉ • ${pack}`;
 }
 

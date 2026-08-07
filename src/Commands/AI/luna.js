@@ -1,14 +1,14 @@
 const axios = require("axios");
-const config = require("../../../settings/config");
 
-const GATEWAY_URL = process.env.GATEWAY_URL || config.api?.gateway || 'https://api.crysnovax.link';
-const GATEWAY_TOKEN = process.env.GATEWAY_TOKEN || config.api?.gatewayToken || '';
+// FIX08-07-26: all Luna calls moved to the working PREXZY chat endpoint —
+// the old ai.crysnovax.link gateway failed, which also broke voice generation.
+const PREXZY_CHAT = "https://prexzyapis.com/ai/ch";
 
 module.exports = {
     name: 'luna',
     alias: ['ai', 'ask'],
     category: 'AI',
-    desc: 'Luna AI Text powered by CRYSNOVA',
+    desc: 'Luna AI Text powered by PREXZY',
 
     execute: async (sock, m, { args, reply }) => {
         const query = args.join(' ').trim();
@@ -17,17 +17,22 @@ module.exports = {
         try {
             await sock.sendMessage(m.chat, { react: { text: '🌙', key: m.key } });
 
-            const response = await axios.post(
-                `${GATEWAY_URL}/chat?token=${encodeURIComponent(GATEWAY_TOKEN)}`,
-                { prompt: query, model: 'gpt-4.5' },
-                { headers: { 'Content-Type': 'application/json' }, timeout: 60000 }
+            const response = await axios.get(
+                `${PREXZY_CHAT}?q=${encodeURIComponent(query)}`,
+                { timeout: 60000 }
             );
 
-            const replyText = response.data?.response || response.data?.text || response.data?.message || '';
-            if (!replyText) return reply('_*✦ Luna failed.*_');
+            const data = response.data || {};
+            let replyText = data?.response || data?.result || data?.message || data?.text || data?.output;
+            if (typeof replyText === 'object' && replyText !== null) {
+                replyText = replyText.content || replyText.output || JSON.stringify(replyText, null, 2);
+            }
+            if (!replyText || typeof replyText !== 'string' || !replyText.trim()) {
+                return reply('_*✦ Luna failed.*_');
+            }
 
             await sock.sendMessage(m.chat, {
-                text: '🌙 *Luna AI*\n\n' + replyText
+                text: '🌙 *Luna AI*\n\n' + replyText.trim()
             }, { quoted: m });
 
         } catch (err) {

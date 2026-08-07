@@ -6,7 +6,8 @@ module.exports = {
     desc: 'Block everyone in the group (except admins and the bot itself)',
     category: 'Group',
     groupOnly: true,
-    adminOnly: true,
+    // not adminOnly — any member may run it, but a confirm word is required
+    // so nobody mass-blocks by accident (@crysnovax—FIX08-07-26)
     reactions: { start: '⛔', success: '🚫' },
 
     execute: async (sock, m, { args, reply, prefix, groupMeta }) => {

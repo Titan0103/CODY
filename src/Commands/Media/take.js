@@ -30,7 +30,7 @@ module.exports = {
             }
 
             // Re-brand — pack forced to ⚉ • <PACK_NAME> when set (@crysnovax—FIX06-08-26)
-            buffer = await addExif(buffer, getPackName() || 'CRYSNOVA AI', 'crysnovax', ['🔥']);
+            buffer = await addExif(buffer, getPackName(), 'CODY AI', ['🔥']);
 
             await sock.sendMessage(m.chat, { sticker: buffer }, { quoted: m });
 

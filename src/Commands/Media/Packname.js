@@ -45,7 +45,7 @@ module.exports = {
 
             // Helper to apply metadata (pure-JS, no sharp) — pack forced to ⚉ • <PACK_NAME> when set (@crysnovax—FIX06-08-26)
             const reencodeWithQuality = async () => {
-                return await addExif(buffer, getPackName() || 'CRYSNOVA AI', author, ['🔥']);
+                return await addExif(buffer, getPackName(), author, ['🔥']);
             };
 
             // If original is already under 500 KB, just apply metadata with high quality
@@ -90,7 +90,7 @@ module.exports = {
 
                     // Now apply metadata
                     if (finalBuffer.length / 1024 <= 500) {
-                        finalBuffer = await addExif(finalBuffer, getPackName() || 'CRYSNOVA AI', author, ['🔥']);
+                        finalBuffer = await addExif(finalBuffer, getPackName(), author, ['🔥']);
                     }
                 }
 
