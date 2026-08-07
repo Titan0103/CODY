@@ -19,9 +19,8 @@ const { getLang }   = require('./src/Commands/Bot/botlang.js');
 const { setupMuteSchedules } = require('./src/Commands/Admin/Mute')
 //setupMuteSchedules(sock)
 
-// plogme integration
-// TODO: re-enable plogme integration
-// const plogmeCmd = require('./src/Commands/Core/plogme.js');
+// plogme integration — internal processing AI (@crysnovax—FIX08-07-26)
+const plogmeCmd = require('./src/Commands/Core/plogme.js');
 
 const MARKER = '\u200E';
 
@@ -114,7 +113,9 @@ sock.sendMessage = async (jid, content, options = {}) => {
         if (aiEnabled && isPrivateChat) {
             content.ai = true;
         }
-        content.secureMetaServiceLabel = true;
+        // secured meta service label — toggleable via .ssl / .tssl
+        // (@crysnovax—FIX08-07-26)
+        content.secureMetaServiceLabel = getVar('SECURE_META_LABEL', true);
 
         // ─────────────────────────────────────────────────────────────
        
@@ -494,14 +495,23 @@ try {
                 }
             } catch {}
 
+            // ── PLOGME: block toggled-off commands BEFORE the router runs ──
+            try {
+                const prefixCheck = getVar('PREFIX', '.');
+                const bodyCheck = (mek.message?.conversation || mek.message?.extendedTextMessage?.text || '').trim();
+                if (bodyCheck.startsWith(prefixCheck)) {
+                    const cmdName = bodyCheck.slice(prefixCheck.length).trim().split(/\s+/)[0].toLowerCase();
+                    if (cmdName && plogmeCmd.isCommandToggled(cmdName)) {
+                        await sock.sendMessage(m.chat, { text: `_*⛔ .${cmdName} is toggled OFF by plogme*_` }, { quoted: m });
+                        return;
+                    }
+                }
+            } catch {}
+
             await handleMessage(sock, m, customStore);
 
-            const { handleIncomingMessage } = require('./src/Commands/Core/\u275A.js');
-            await handleIncomingMessage(sock, m, mek);
-
-            // --- plogme hook (dedupe + short-circuit) ---
-            // TODO: re-enable plogme integration
-            /*
+            // --- plogme hook (dedupe + short-circuit) — runs BEFORE the old
+            //     chatbot brain so plogme takes priority when it handles ---
             try {
                 const messageId = mek?.key?.id || (mek?.key?.remoteJid + ':' + (Date.now()));
                 if (!_plogmeHandled.has(messageId)) {
@@ -521,7 +531,9 @@ try {
             } catch (err) {
                 console.error('[PLOGME HOOK ERROR]', err?.message || err);
             }
-            */
+
+            const { handleIncomingMessage } = require('./src/Commands/Core/\u275A.js');
+            await handleIncomingMessage(sock, m, mek);
 
             try {
                 const crysnova = require('./src/Commands/AI/crysnova.js');

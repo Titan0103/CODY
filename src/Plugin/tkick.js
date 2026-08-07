@@ -47,13 +47,30 @@ function cleanup(group, user) {
     }
 }
 
+// Returns true ONLY when the user is actually back in the group — the bot
+// must never announce an add that didn't happen (@crysnovax—FIX08-07-26).
 async function reAdd(sock, group, user) {
     try {
         if (typeof sock.groupParticipantsUpdate === 'function') {
             await sock.groupParticipantsUpdate(group, [user], 'add');
         }
+
+        // give the server a moment, then verify via fresh metadata
+        await new Promise(r => setTimeout(r, 2500));
+        const meta = await sock.groupMetadata(group).catch(() => null);
+        if (!meta?.participants) return false;
+
+        const norm = (j = '') => String(j || '').replace(/:\d+@/g, '@');
+        const userNorm = norm(user);
+        const userPhone = userNorm.split('@')[0];
+
+        return meta.participants.some(p => {
+            const id = norm(p.id);
+            return id === userNorm || id.split('@')[0] === userPhone;
+        });
     } catch (err) {
         console.error('[TKICK] re-add failed:', err.message);
+        return false;
     }
 }
 
@@ -71,7 +88,13 @@ async function scheduleReAdd(sock, group, user) {
     if (timers.has(key)) clearTimeout(timers.get(key));
 
     timers.set(key, setTimeout(async () => {
-        await reAdd(sock, group, user);
+        const added = await reAdd(sock, group, user);
+        if (!added) {
+            // user is NOT back yet — re-arm so we retry instead of lying
+            console.log(`[TKICK] re-add of ${user} not confirmed, retrying…`);
+            scheduleReAdd(sock, group, user);
+            return;
+        }
         try {
             await sock.sendMessage(group, {
                 text: `ᯤ @${user.split('@')[0]} auto re-added after the temp kick`,

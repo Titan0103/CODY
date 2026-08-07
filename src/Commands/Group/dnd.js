@@ -48,9 +48,21 @@ module.exports.handleDndTag = async (sock, m) => {
 
         if (!m.mentionedJid?.length) return;
 
+        // 1) bot itself tagged
         const botJid = (sock.user?.id || '').replace(/:\d+@/, '@');
-        const tagged = m.mentionedJid.some(j => j.replace(/:\d+@/, '@') === botJid);
-        if (!tagged) return;
+        const botTagged = m.mentionedJid.some(j => j.replace(/:\d+@/, '@') === botJid);
+
+        // 2) owner / sudo / dual tagged — same privileged-identity logic as the
+        //    mention handler (.mention -react / -text) — @crysnovax—FIX08-07-26
+        let privilegedTagged = false;
+        try {
+            const mention = require('../Owner/mention.js');
+            if (mention?.isPrivilegedMentioned) {
+                privilegedTagged = await mention.isPrivilegedMentioned(sock, m);
+            }
+        } catch {}
+
+        if (!botTagged && !privilegedTagged) return;
 
         // delete the tag message (needs bot admin; best effort)
         await sock.sendMessage(m.chat, { delete: m.key }).catch(() => {});

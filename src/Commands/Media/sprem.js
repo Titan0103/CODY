@@ -3,6 +3,7 @@ const path = require('path');
 const { exec } = require('child_process');
 // Pure-JS exif writer (node-webpmux) instead of wa-sticker-formatter -> sharp.
 const { addExif } = require('../../../library/exif');
+const { getPackName } = require('../../Plugin/packname');
 
 module.exports = {
     name: 'sprem',
@@ -54,7 +55,7 @@ module.exports = {
             let buffer = fs.readFileSync(output);
 
             // Add metadata (pure-JS, no sharp)
-            buffer = await addExif(buffer, 'CRYSNOVA AI', 'crysnovax', ['🔥']);
+            buffer = await addExif(buffer, getPackName(), 'CODY AI', ['🔥']);
 
             // Send as premium sticker — shows 💎 badge
             await sock.sendMessage(m.chat, {
