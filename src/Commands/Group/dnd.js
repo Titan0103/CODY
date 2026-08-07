@@ -48,9 +48,25 @@ module.exports.handleDndTag = async (sock, m) => {
 
         if (!m.mentionedJid?.length) return;
 
-        // 1) bot itself tagged
-        const botJid = (sock.user?.id || '').replace(/:\d+@/, '@');
-        const botTagged = m.mentionedJid.some(j => j.replace(/:\d+@/, '@') === botJid);
+        // 1) bot itself tagged — compare ALL identity variants (phone JID and
+        //    LID) so a tag by lid still triggers DND (@crysnovax—FIX08-07-26)
+        let botTagged = false;
+        try {
+            const { identityVariants } = require('../../Plugin/identityUtils');
+            const variants = new Set();
+            for (const jid of [sock.user?.id, sock.user?.lid].filter(Boolean)) {
+                variants.add(String(jid).toLowerCase());
+                for (const v of await identityVariants(sock, String(jid))) variants.add(v.toLowerCase());
+            }
+            botTagged = m.mentionedJid.some(j =>
+                [...variants].some(v =>
+                    String(j).replace(/:\d+@/, '@').toLowerCase() === v.replace(/:\d+@/, '@').toLowerCase()
+                )
+            );
+        } catch {
+            const botJid = (sock.user?.id || '').replace(/:\d+@/, '@');
+            botTagged = m.mentionedJid.some(j => j.replace(/:\d+@/, '@') === botJid);
+        }
 
         // 2) owner / sudo / dual tagged — same privileged-identity logic as the
         //    mention handler (.mention -react / -text) — @crysnovax—FIX08-07-26

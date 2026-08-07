@@ -164,8 +164,11 @@ setupPromotionGuard(sock);
             } = require('./src/Plugin/anticallManager');
 
             const config = loadConfig();
-            if (!config.enabled) return;
 
+            // Whitelist & blacklist are ALWAYS active (as documented) — the
+            // global switch only gates unknown callers, so `.anticall reason`
+            // works even when global block-unknowns is off.
+            // (@crysnovax—FIX08-07-26)
             if (!config.pendingPhoneReject) config.pendingPhoneReject = [];
 
             const ownerJid = `${config.owner || process.env.OWNER_NUMBER}@s.whatsapp.net`;
@@ -184,6 +187,9 @@ setupPromotionGuard(sock);
                     if (typeof sock.rejectCall === 'function') await sock.rejectCall(call.id, call.from).catch(() => {});
                     continue;
                 }
+
+                // Global switch controls unknown callers only
+                if (!config.enabled) continue;
 
                 if (callerPhone && config.pendingPhoneReject.includes(callerPhone)) {
                     config.blacklist = config.blacklist.filter(b => normalizeJid(b) !== `${callerPhone}@s.whatsapp.net`);

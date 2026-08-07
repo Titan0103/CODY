@@ -47,6 +47,26 @@ function cleanup(group, user) {
     }
 }
 
+// When the user's privacy settings block direct adds, fall back to sending a
+// group invite link to their DM so they can join back themselves.
+// (@crysnovax—FIX08-07-26)
+async function sendInviteFallback(sock, group, user) {
+    try {
+        if (typeof sock.groupInviteCode !== 'function') return false;
+        const code = await sock.groupInviteCode(group);
+        if (!code) return false;
+        const meta = await sock.groupMetadata(group).catch(() => null);
+        const name = meta?.subject || 'the group';
+        await sock.sendMessage(user, {
+            text: `ᯤ *${name}* — your temp kick is over, but the bot couldn't add you back directly (privacy settings).\n\nJoin again here:\nhttps://chat.whatsapp.com/${code}`
+        });
+        return true;
+    } catch (err) {
+        console.error('[TKICK] invite fallback failed:', err.message);
+        return false;
+    }
+}
+
 // Returns true ONLY when the user is actually back in the group — the bot
 // must never announce an add that didn't happen (@crysnovax—FIX08-07-26).
 async function reAdd(sock, group, user) {
@@ -90,7 +110,20 @@ async function scheduleReAdd(sock, group, user) {
     timers.set(key, setTimeout(async () => {
         const added = await reAdd(sock, group, user);
         if (!added) {
-            // user is NOT back yet — re-arm so we retry instead of lying
+            // Direct add not confirmed — most likely privacy settings block it.
+            // Send a group invite to their DM instead of silently failing.
+            const invited = await sendInviteFallback(sock, group, user);
+            if (invited) {
+                try {
+                    await sock.sendMessage(group, {
+                        text: `ᯤ @${user.split('@')[0]} couldn't be added back automatically — invite sent instead.`,
+                        mentions: [user]
+                    });
+                } catch {}
+                cleanup(group, user);
+                return;
+            }
+            // no invite possible either — re-arm so we retry instead of lying
             console.log(`[TKICK] re-add of ${user} not confirmed, retrying…`);
             scheduleReAdd(sock, group, user);
             return;

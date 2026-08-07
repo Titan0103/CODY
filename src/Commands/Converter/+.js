@@ -1,1 +1,172 @@
-function a0_0x263f(_0x427fe1,_0x15733d){_0x427fe1=_0x427fe1-0x1f0;const _0x111493=a0_0x1114();let _0x263f58=_0x111493[_0x427fe1];return _0x263f58;}function a0_0x1114(){const _0x9e75a8=['audio/ogg;\x20codecs=opus','map','luna','You\x20are\x20a\x20highly\x20intelligent\x20and\x20helpful\x20AI\x20assistant.\x20Give\x20a\x20direct,\x20accurate,\x20and\x20informative\x20answer\x20to\x20this\x20question.\x20Be\x20concise\x20but\x20thorough.\x20Question:\x20','ffmpeg\x20-i\x20\x22','4dxauGX','[LUNAV\x20ERROR]','trim','lvoice','unlinkSync','1124810sbAeuo','axios','8813soboaM','from','_*✦\x20No\x20text\x20to\x20speak.*_','/ai/gemini?text=','match','2479750egbOwR','join','sendMessage','873756pmLpFI','data','flirty','\x22\x20-ac\x201\x20-ar\x2048000\x20-c:a\x20libopus\x20-b:a\x2016k\x20\x22','&token=','_*✦\x20Luna\x20returned\x20no\x20response.*_','3tAJVDb','FFmpeg\x20concat\x20failed:\x20','3745767cFpasz','505884kqhetn','exports','size','length','statSync','\x22\x20-c\x20copy\x20\x22','replace','chat','luna_','push','lunav','.ogg','\x22\x20-y','includes','get','SYSTEM:\x20You\x20are\x20a\x20professional\x20AI.\x20No\x20flirting.\x20No\x20roleplay.\x20Just\x20facts.\x0a\x0aUSER:\x20','2334pwdsCK','message','now','.list.txt','⚉\x20Ask\x20Luna\x20something.','426368xbXVYV','existsSync','path','child_process','handsome','https://api.crysnovax.link','🎙️','writeFileSync','error','result','Luna\x20AI\x20Voice\x20–\x20Smart\x20AI\x20answers\x20via\x20Gemini\x20+\x20TTS','mkdirSync','/tools/tts?text=','11iTVAwN','darling','18CJlXuy','slice'];a0_0x1114=function(){return _0x9e75a8;};return a0_0x1114();}const a0_0x147d8c=a0_0x263f;(function(_0x433cc5,_0x57130e){const _0x498618=a0_0x263f,_0x14d54f=_0x433cc5();while(!![]){try{const _0x3448f7=-parseInt(_0x498618(0x219))/0x1*(-parseInt(_0x498618(0x213))/0x2)+-parseInt(_0x498618(0x21b))/0x3*(parseInt(_0x498618(0x204))/0x4)+parseInt(_0x498618(0x210))/0x5+parseInt(_0x498618(0x22c))/0x6*(parseInt(_0x498618(0x20b))/0x7)+-parseInt(_0x498618(0x231))/0x8+-parseInt(_0x498618(0x1fd))/0x9*(parseInt(_0x498618(0x209))/0xa)+parseInt(_0x498618(0x1fb))/0xb*(-parseInt(_0x498618(0x21c))/0xc);if(_0x3448f7===_0x57130e)break;else _0x14d54f['push'](_0x14d54f['shift']());}catch(_0x5c16d9){_0x14d54f['push'](_0x14d54f['shift']());}}}(a0_0x1114,0xb1923));const fs=require('fs'),path=require(a0_0x147d8c(0x1f0)),axios=require(a0_0x147d8c(0x20a)),{exec}=require(a0_0x147d8c(0x1f1)),AI_GATEWAY='https://appex.crysnovax.link',AI_TOKEN='x',TTS_GATEWAY=a0_0x147d8c(0x1f3),TTS_TOKEN='x',CHUNK_SIZE=0xb4,MAX_TOTAL_CHARS=0x640;function splitTextIntoChunks(_0x2ff1cd,_0x1dbac5){const _0x19a470=a0_0x147d8c,_0x1231a=_0x2ff1cd[_0x19a470(0x20f)](/[^\.!\?]+[\.!\?]+/g)||[_0x2ff1cd],_0x5f3bad=[];let _0x313edc='';for(const _0x3d2bd5 of _0x1231a){if((_0x313edc+_0x3d2bd5)['length']<=_0x1dbac5)_0x313edc+=_0x3d2bd5;else{if(_0x313edc)_0x5f3bad[_0x19a470(0x225)](_0x313edc[_0x19a470(0x206)]());_0x313edc=_0x3d2bd5;}}if(_0x313edc)_0x5f3bad['push'](_0x313edc[_0x19a470(0x206)]());return _0x5f3bad;}async function downloadTTSChunk(_0x47a820,_0x9f58ac){const _0xab6925=a0_0x147d8c,_0x5596a9=TTS_GATEWAY+_0xab6925(0x1fa)+encodeURIComponent(_0x47a820)+_0xab6925(0x217)+TTS_TOKEN,_0x72c69a=await axios['get'](_0x5596a9,{'responseType':'arraybuffer','timeout':0x7530});fs['writeFileSync'](_0x9f58ac,Buffer[_0xab6925(0x20c)](_0x72c69a[_0xab6925(0x214)]));}async function concatenateMP3s(_0xc58859,_0x2eb455){const _0x527f27=a0_0x147d8c,_0xb3cc74=_0x2eb455+_0x527f27(0x22f),_0x42ee58=_0xc58859[_0x527f27(0x200)](_0x1653fb=>'file\x20\x27'+_0x1653fb+'\x27')[_0x527f27(0x211)]('\x0a');return fs[_0x527f27(0x1f5)](_0xb3cc74,_0x42ee58),new Promise((_0x1d2355,_0xaaad53)=>{const _0x20c19=_0x527f27,_0x432e0f='ffmpeg\x20-f\x20concat\x20-safe\x200\x20-i\x20\x22'+_0xb3cc74+_0x20c19(0x221)+_0x2eb455+_0x20c19(0x228);exec(_0x432e0f,{'timeout':0xea60},(_0xc32b78,_0x82397,_0x4dc47a)=>{const _0x43351b=_0x20c19;try{fs[_0x43351b(0x208)](_0xb3cc74);}catch{}if(_0xc32b78)_0xaaad53(new Error(_0x43351b(0x21a)+(_0x4dc47a||_0xc32b78[_0x43351b(0x22d)])));else _0x1d2355();});});}async function convertToVoiceNote(_0xd37bda,_0x51bd48){return new Promise((_0x8a1195,_0x4273bd)=>{const _0x5008fb=a0_0x263f,_0x1df752=_0x5008fb(0x203)+_0xd37bda+_0x5008fb(0x216)+_0x51bd48+_0x5008fb(0x228);exec(_0x1df752,{'timeout':0xea60},(_0x14f0e8,_0x3879ca,_0x2ebc0c)=>{const _0x490c62=_0x5008fb;if(_0x14f0e8)_0x4273bd(new Error('FFmpeg\x20conversion\x20failed:\x20'+(_0x2ebc0c||_0x14f0e8[_0x490c62(0x22d)])));else _0x8a1195();});});}module[a0_0x147d8c(0x21d)]={'name':a0_0x147d8c(0x226),'alias':[a0_0x147d8c(0x207),a0_0x147d8c(0x201)],'category':'AI','desc':a0_0x147d8c(0x1f8),'execute':async(_0x41406c,_0x203827,{args:_0x22fb2a,reply:_0x1fe986})=>{const _0x5894f8=a0_0x147d8c,_0x4a707d=_0x22fb2a['join']('\x20')['trim']();if(!_0x4a707d)return _0x1fe986(_0x5894f8(0x230));const _0x104002=path[_0x5894f8(0x211)](__dirname,'../../temp');if(!fs[_0x5894f8(0x232)](_0x104002))fs[_0x5894f8(0x1f9)](_0x104002,{'recursive':!![]});const _0x59463f=Date[_0x5894f8(0x22e)](),_0x21007=[],_0x1c5d38=path[_0x5894f8(0x211)](_0x104002,_0x5894f8(0x224)+_0x59463f+'_concat.mp3'),_0x5d16fd=path[_0x5894f8(0x211)](_0x104002,'luna_'+_0x59463f+_0x5894f8(0x227));try{await _0x41406c[_0x5894f8(0x212)](_0x203827[_0x5894f8(0x223)],{'react':{'text':_0x5894f8(0x1f4),'key':_0x203827['key']}});const _0x1e20c9=_0x5894f8(0x202)+_0x4a707d,_0x1cd5e7=await axios[_0x5894f8(0x22a)](AI_GATEWAY+'/ai/gemini?text='+encodeURIComponent(_0x1e20c9)+_0x5894f8(0x217)+AI_TOKEN,{'timeout':0xafc8});let _0x4201dd=_0x1cd5e7[_0x5894f8(0x214)]?.[_0x5894f8(0x1f7)]||'';if(_0x4201dd[_0x5894f8(0x229)](_0x5894f8(0x1f2))||_0x4201dd[_0x5894f8(0x229)](_0x5894f8(0x1fc))||_0x4201dd[_0x5894f8(0x229)](_0x5894f8(0x215))){const _0x1927c7=await axios[_0x5894f8(0x22a)](AI_GATEWAY+_0x5894f8(0x20e)+encodeURIComponent(_0x5894f8(0x22b)+_0x4a707d)+_0x5894f8(0x217)+AI_TOKEN,{'timeout':0xafc8});_0x4201dd=_0x1927c7[_0x5894f8(0x214)]?.[_0x5894f8(0x1f7)]||_0x4201dd;}if(!_0x4201dd||_0x4201dd[_0x5894f8(0x21f)]<0xa)return _0x1fe986(_0x5894f8(0x218));_0x4201dd=_0x4201dd[_0x5894f8(0x222)](/[*_~`#]/g,'')[_0x5894f8(0x222)](/\[.*?\]\(.*?\)/g,'')['replace'](/\n{3,}/g,'.\x20')[_0x5894f8(0x222)](/\n/g,'.\x20')['replace'](/\s{2,}/g,'\x20')['trim']();_0x4201dd[_0x5894f8(0x21f)]>MAX_TOTAL_CHARS&&(_0x4201dd=_0x4201dd[_0x5894f8(0x1fe)](0x0,MAX_TOTAL_CHARS)+'...\x20truncated.');const _0x521794=splitTextIntoChunks(_0x4201dd,CHUNK_SIZE);if(_0x521794[_0x5894f8(0x21f)]===0x0)return _0x1fe986(_0x5894f8(0x20d));for(let _0x2df0a1=0x0;_0x2df0a1<_0x521794[_0x5894f8(0x21f)];_0x2df0a1++){const _0xf3faec=path[_0x5894f8(0x211)](_0x104002,_0x5894f8(0x224)+_0x59463f+'_chunk_'+_0x2df0a1+'.mp3');await downloadTTSChunk(_0x521794[_0x2df0a1],_0xf3faec),_0x21007[_0x5894f8(0x225)](_0xf3faec);}await concatenateMP3s(_0x21007,_0x1c5d38),await convertToVoiceNote(_0x1c5d38,_0x5d16fd),fs[_0x5894f8(0x232)](_0x5d16fd)&&fs[_0x5894f8(0x220)](_0x5d16fd)[_0x5894f8(0x21e)]>0x0&&await _0x41406c[_0x5894f8(0x212)](_0x203827[_0x5894f8(0x223)],{'audio':fs['readFileSync'](_0x5d16fd),'mimetype':_0x5894f8(0x1ff),'ptt':!![]},{'quoted':_0x203827});}catch(_0xc8dffd){console[_0x5894f8(0x1f6)](_0x5894f8(0x205),_0xc8dffd[_0x5894f8(0x22d)]),_0x1fe986('_*✦\x20Voice\x20generation\x20failed.*_');}finally{if(fs['existsSync'](_0x1c5d38))fs['unlinkSync'](_0x1c5d38);if(fs[_0x5894f8(0x232)](_0x5d16fd))fs['unlinkSync'](_0x5d16fd);for(const _0x2e400a of _0x21007){if(fs['existsSync'](_0x2e400a))fs[_0x5894f8(0x208)](_0x2e400a);}}}};
+// lunav.js — Luna AI Voice: a smart AI answer, read aloud as a voice note.
+// Text generation now uses the working PREXZY chat endpoints (same as .luna)
+// instead of the dead appex.crysnovax.link gateway, which was returning 500.
+// TTS uses the CRYSNOVA gateway with a Google Translate TTS fallback.
+// @crysnovax—FIX08-07-26
+const fs = require('fs');
+const path = require('path');
+const axios = require('axios');
+const { exec } = require('child_process');
+
+const PREXZY = 'https://prexzyapis.com';
+const TTS_GATEWAY = 'https://api.crysnovax.link/tools/tts';
+const TTS_TOKEN = 'x';
+const GOOGLE_TTS = 'https://translate.google.com/translate_tts';
+
+const CHUNK_SIZE = 180;
+const MAX_TOTAL_CHARS = 1600;
+
+const SYSTEM_PROMPT =
+    'You are Luna AI, a highly intelligent and helpful AI assistant. Give a direct, accurate, and informative answer to this question. Be concise but thorough. Question: ';
+const PROFESSIONAL_PROMPT =
+    'SYSTEM: You are a professional AI. No flirting. No roleplay. Just facts.\n\nUSER: ';
+
+function splitTextIntoChunks(text, size) {
+    const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+    const chunks = [];
+    let current = '';
+    for (const s of sentences) {
+        if ((current + s).length <= size) current += s;
+        else {
+            if (current) chunks.push(current.trim());
+            current = s;
+        }
+    }
+    if (current) chunks.push(current.trim());
+    return chunks.filter(Boolean);
+}
+
+async function askLuna(query) {
+    const endpoints = [
+        `${PREXZY}/ai/ch?q=`,
+        `${PREXZY}/ai/askgpt5?prompt=`,
+    ];
+    for (const ep of endpoints) {
+        try {
+            const { data } = await axios.get(ep + encodeURIComponent(query), { timeout: 60000 });
+            const text = data?.response || data?.result || data?.text || data?.message || data?.output;
+            if (typeof text === 'string' && text.trim().length > 3) return text.trim();
+        } catch {}
+    }
+    return null;
+}
+
+async function downloadTTSChunk(text, outFile) {
+    const urls = [
+        `${TTS_GATEWAY}?text=${encodeURIComponent(text)}&token=${encodeURIComponent(TTS_TOKEN)}`,
+        `${GOOGLE_TTS}?ie=UTF-8&client=tw-ob&tl=en&q=${encodeURIComponent(text)}`,
+    ];
+    let lastErr = null;
+    for (const url of urls) {
+        try {
+            const res = await axios.get(url, { responseType: 'arraybuffer', timeout: 30000 });
+            const buf = Buffer.from(res.data);
+            // skip empty bodies and HTML error pages
+            if (buf.length > 1000 && buf[0] !== 0x3c) {
+                fs.writeFileSync(outFile, buf);
+                return;
+            }
+        } catch (e) {
+            lastErr = e;
+        }
+    }
+    throw lastErr || new Error('TTS download failed');
+}
+
+function runFfmpeg(cmd) {
+    return new Promise((resolve, reject) => {
+        exec(cmd, { timeout: 60000 }, (err, stdout, stderr) => {
+            if (err) reject(new Error(stderr || err.message));
+            else resolve();
+        });
+    });
+}
+
+async function concatenateMP3s(chunks, outMp3) {
+    const listFile = outMp3 + '.list.txt';
+    fs.writeFileSync(listFile, chunks.map(c => `file '${c}'`).join('\n'));
+    try {
+        await runFfmpeg(`ffmpeg -f concat -safe 0 -i "${listFile}" -c copy "${outMp3}" -y`);
+    } finally {
+        try { fs.unlinkSync(listFile); } catch {}
+    }
+}
+
+async function convertToVoiceNote(inMp3, outOgg) {
+    await runFfmpeg(`ffmpeg -i "${inMp3}" -ac 1 -ar 48000 -c:a libopus -b:a 16k "${outOgg}" -y`);
+}
+
+module.exports = {
+    name: 'lunav',
+    alias: ['lvoice', 'lv'],
+    desc: 'Luna AI Voice — smart AI answers via voice note',
+    category: 'Converter',
+    reactions: { start: '🎙️', success: '✨', error: '🙈' },
+
+    execute: async (sock, m, { args, reply }) => {
+        const query = args.join(' ').trim();
+        if (!query) return reply('_*⚉ Ask Luna something.*_');
+
+        const tempDir = path.join(__dirname, '../../temp');
+        try { fs.mkdirSync(tempDir, { recursive: true }); } catch {}
+
+        const stamp = Date.now();
+        const concatMp3 = path.join(tempDir, `luna_${stamp}_concat.mp3`);
+        const outOgg = path.join(tempDir, `luna_${stamp}.ogg`);
+        const chunkFiles = [];
+
+        try {
+            await sock.sendMessage(m.chat, { react: { text: '🎙️', key: m.key } });
+
+            let answer = await askLuna(SYSTEM_PROMPT + query);
+            if (!answer) return reply('_*✦ Luna returned no response.*_');
+
+            // anti-flirt guard — keep it professional
+            if (/(flirty|darling|handsome)/i.test(answer)) {
+                const retry = await askLuna(PROFESSIONAL_PROMPT + query);
+                if (retry) answer = retry;
+            }
+
+            // clean text so the TTS reads it nicely
+            answer = answer
+                .replace(/[*_~`#]/g, '')
+                .replace(/\[.*?\]\(.*?\)/g, '')
+                .replace(/\n{3,}/g, '. ')
+                .replace(/\n/g, '. ')
+                .replace(/\s{2,}/g, ' ')
+                .trim();
+            if (answer.length > MAX_TOTAL_CHARS) answer = answer.slice(0, MAX_TOTAL_CHARS) + '... truncated.';
+
+            const chunks = splitTextIntoChunks(answer, CHUNK_SIZE);
+            if (!chunks.length) return reply('_*✦ No text to speak.*_');
+
+            for (let i = 0; i < chunks.length; i++) {
+                const f = path.join(tempDir, `luna_${stamp}_chunk_${i}.mp3`);
+                await downloadTTSChunk(chunks[i], f);
+                chunkFiles.push(f);
+            }
+
+            await concatenateMP3s(chunkFiles, concatMp3);
+            await convertToVoiceNote(concatMp3, outOgg);
+
+            if (fs.existsSync(outOgg) && fs.statSync(outOgg).size > 0) {
+                await sock.sendMessage(m.chat, {
+                    audio: fs.readFileSync(outOgg),
+                    mimetype: 'audio/ogg; codecs=opus',
+                    ptt: true
+                }, { quoted: m });
+                await sock.sendMessage(m.chat, { react: { text: '✨', key: m.key } });
+            } else {
+                return reply('_*✦ Voice generation failed.*_');
+            }
+        } catch (err) {
+            console.error('[LUNAV ERROR]', err.message);
+            await sock.sendMessage(m.chat, { react: { text: '🙈', key: m.key } }).catch(() => {});
+            return reply('_*✦ Voice generation failed.*_');
+        } finally {
+            try { if (fs.existsSync(concatMp3)) fs.unlinkSync(concatMp3); } catch {}
+            try { if (fs.existsSync(outOgg)) fs.unlinkSync(outOgg); } catch {}
+            for (const f of chunkFiles) { try { if (fs.existsSync(f)) fs.unlinkSync(f); } catch {} }
+        }
+    }
+};

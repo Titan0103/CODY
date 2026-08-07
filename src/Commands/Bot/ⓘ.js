@@ -104,15 +104,26 @@ async function getUserName(sock, m) {
     }
 }
 
-// Function to get user number from message
-function getUserNumber(m) {
+// Function to get user number from message — resolves LID → real phone number
+// so a non-owner user sees THEIR number, never the session's LID.
+// (@crysnovax—FIX08-07-26)
+async function getUserNumber(sock, m) {
     try {
-        let jid = m.sender || m.key?.remoteJid || m.from;
-        if (jid) {
-            let number = jid.split('@')[0];
-            number = number.replace(/\D/g, '');
-            if (number && number.length >= 10) return number;
-        }
+        const jid = m.sender || m.key?.remoteJid || m.from;
+        if (!jid) return 'Unknown';
+
+        try {
+            const { resolvePhoneJid } = require('../../Plugin/identityUtils');
+            const phone = await resolvePhoneJid(sock, [jid]);
+            if (phone) {
+                const num = phone.split('@')[0].replace(/\D/g, '');
+                if (num && num.length >= 10) return num;
+            }
+        } catch {}
+
+        let number = jid.split('@')[0];
+        number = number.replace(/\D/g, '');
+        if (number && number.length >= 10) return number;
         return 'Unknown';
     } catch {
         return 'Unknown';
@@ -159,10 +170,12 @@ module.exports = {
         
         // Get user info directly from message
         const userName = await getUserName(sock, m);
-        const userNum = getUserNumber(m);
+        const userNum = await getUserNumber(sock, m);
         
-        // Get bot name from config or use default
-        const rawBotName = config.settings?.title || '';
+        // Get bot name from config or use default — config is optional (e.g.
+        // when invoked via .plogme run menu) so never crash on it
+        // (@crysnovax—FIX08-07-26)
+        const rawBotName = (config?.settings?.title) || getVar('BOT_NAME') || '';
         const botName = toStyledName(rawBotName);
         
         // uptime follows the preserved startTime so updates don't reset it (@crysnovax—FIX06-08-26)

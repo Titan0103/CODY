@@ -4,7 +4,7 @@ const { exec } = require('child_process');
 const { downloadContentFromMessage } = require('@crysnovax/baileys');
 // Pure-JS exif writer (node-webpmux) instead of wa-sticker-formatter -> sharp.
 const { addExif } = require('../../../library/exif');
-const { getPackName } = require('../../Plugin/packname');
+const { getStickerBranding } = require('../../Plugin/packname');
 
 module.exports = {
     name: 'toround',
@@ -77,8 +77,9 @@ module.exports = {
 
             let finalBuffer = fs.readFileSync(output);
 
-            // Add metadata (pure-JS, no sharp)
-            finalBuffer = await addExif(finalBuffer, getPackName(), 'CODY AI', ['🔥']);
+            // Add metadata (pure-JS, no sharp) — no hardcoded CODY AI author (@crysnovax—FIX08-07-26)
+            const { pack: packName, author: packAuthor } = getStickerBranding();
+            finalBuffer = await addExif(finalBuffer, packName, packAuthor, ['🔥']);
 
             if (finalBuffer.length / 1024 > 500) {
                 fs.unlinkSync(input);
