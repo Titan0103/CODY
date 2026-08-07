@@ -94,12 +94,21 @@ const isCommandToggled = (name) => { const d = loadJson(FILES.toggled); const cm
 const toggleCommand = (name, off) => { const d = loadJson(FILES.toggled); const cmd = String(name || '').toLowerCase(); if (!cmd) return false; d[cmd] = !!off ? 'off' : 'on'; saveJson(FILES.toggled, d); return true; };
 const getToggledList = () => Object.entries(loadJson(FILES.toggled)).filter(([, v]) => v === 'off').map(([k]) => k);
 
-/* ───────────────────────── AI (same PREXZY models as the chatbot brain) ───────────────────────── */
+/* ───────────────────────── AI (same working PREXZY models as the chatbot) ───────────────────────── */
+// PLOGME uses the SAME PREXZY models as the .chatbot brain. We verified the
+// current endpoints live: /ai/ch and /ai/askgpt5 respond (grok-4, gpt-5,
+// deepseekchat, chatgpt, gemini all 404/dead right now — the chatbot brain
+// itself falls back to askgpt5 for the same reason). These are the models
+// the user chose, and the model chain the chatbot actually answers with.
+// @crysnovax—FIX08-07-26
 async function askAI(prompt) {
     const endpoints = [
-        `${PREXZY}/ai/grok-4?prompt=`,
-        `${PREXZY}/ai/askgpt5?prompt=`,
         `${PREXZY}/ai/ch?q=`,
+        `${PREXZY}/ai/askgpt5?prompt=`,
+        `${PREXZY}/ai/grok-4?prompt=`,
+        `${PREXZY}/ai/gpt-5?text=`,
+        `${PREXZY}/ai/deepseekchat?prompt=`,
+        `${PREXZY}/ai/chatgpt?text=`,
     ];
     for (const ep of endpoints) {
         try {
@@ -329,6 +338,29 @@ async function handleControlIntent(sock, m, opts, text) {
         return true;
     }
 
+    // ── Lenient command intent: a plain query that basically asks for a
+    //    command should just run it — "ping", "run ping", "can you ping",
+    //    "check uptime", "menu" (@crysnovax—FIX08-07-26)
+    try {
+        const { getCommand } = require('../../Plugin/crysCmd');
+        const cleaned = text
+            .replace(/^(?:plogme|plg|plog)\s+/i, '')
+            .replace(/^(?:can you|could you|please|pls|do|run|execute|try|check|show|give me|let'?s|how about|what about|start|open)\s+/i, '')
+            .trim();
+        const words = cleaned.toLowerCase().split(/\s+/).filter(Boolean);
+        if (words.length && words.length <= 5) {
+            for (const w of words.slice(0, 2)) {
+                const cmd = getCommand(w);
+                if (cmd && typeof cmd.execute === 'function') {
+                    const restArgs = cleaned.split(/\s+/).filter(Boolean).slice(words.indexOf(w) + 1);
+                    const result = await runCommandAction(sock, m, opts, cmd.name + (restArgs.length ? ' ' + restArgs.join(' ') : ''));
+                    if (result !== true) await opts.reply(result);
+                    return true;
+                }
+            }
+        }
+    } catch {}
+
     return false;
 }
 
@@ -347,9 +379,14 @@ async function execute(sock, m, opts) {
 
         const privileged = await isPrivileged(sock, m);
 
-        // Control intents — only for owner/sudo/dual
+        // Control intents — only for owner/sudo/dual. A ".plogme run ping"
+        // style message is treated the same as a bare control intent, and a
+        // plain "ping" / "can you ping" / "check uptime" query auto-runs the
+        // command too — no more strict phrasing. @crysnovax—FIX08-07-26
         if (privileged) {
-            const handledControl = await handleControlIntent(sock, m, opts, text);
+            const body = isCommand ? text.slice(prefix.length).trim() : text;
+            const isPlogmeInvocation = /^(plogme|plg|plog)(\s|$)/i.test(body);
+            const handledControl = await handleControlIntent(sock, m, opts, isPlogmeInvocation ? body : text);
             if (handledControl) return true;
         }
 

@@ -22,10 +22,15 @@ const saveMutedDb = data => {
     fs.writeFileSync(STICKER_MUTE_FILE, JSON.stringify(data, null, 2));
 };
 
-// Unique identity of a sticker = its fileSha256
+// Unique identity of a sticker = its fileSha256.
+// The quoted message is the UNWRAPPED sticker content (see library/serialize.js),
+// so the hash lives at target.fileSha256 directly — not target.message.stickerMessage.
+// (@crysnovax—FIX08-07-26)
 const hashOf = (m) => {
     try {
-        const raw = m?.message?.stickerMessage?.fileSha256;
+        const raw = m?.message?.stickerMessage?.fileSha256
+            || m?.msg?.stickerMessage?.fileSha256
+            || m?.fileSha256;
         if (!raw) return null;
         return Buffer.isBuffer(raw) ? raw.toString('hex') : String(raw);
     } catch {
@@ -52,16 +57,8 @@ module.exports = {
 
         const sub = (args[0] || '').toLowerCase();
 
-        if (sub === 'on') {
-            cfg.enabled = true;
-            saveMutedDb(db);
-            return reply('_✓ Sticker ban ON_');
-        }
-        if (sub === 'off') {
-            cfg.enabled = false;
-            saveMutedDb(db);
-            return reply('_✘ Sticker ban OFF_');
-        }
+        // NOTE: no more "on"/"off" — this command only bans ONE specific
+        // sticker (like muteallsticker but per-sticker). (@crysnovax—FIX08-07-26)
         if (sub === 'list') {
             const entries = Object.entries(cfg.hashes);
             if (!entries.length) return reply('_No banned stickers in this group_');
@@ -93,7 +90,7 @@ module.exports = {
                 `${prefix}mutesticker (reply to a sticker)\n` +
                 `${prefix}mutesticker list\n` +
                 `${prefix}mutesticker remove <n>\n` +
-                `${prefix}mutesticker on|off|clear`
+                `${prefix}mutesticker clear`
             );
         }
         if (cfg.hashes[hash]) return reply('_✘ That sticker is already banned_');

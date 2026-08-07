@@ -2,7 +2,7 @@ const { downloadContentFromMessage } = require('@crysnovax/baileys');
 // Pure-JS exif writer (node-webpmux). Avoids wa-sticker-formatter -> sharp,
 // which crashes on hosts without a prebuilt sharp binary.
 const { addExif } = require('../../../library/exif');
-const { getPackName } = require('../../Plugin/packname');
+const { getStickerBranding } = require('../../Plugin/packname');
 
 module.exports = {
     name: 'take',
@@ -29,8 +29,10 @@ module.exports = {
                 buffer = Buffer.concat([buffer, chunk]);
             }
 
-            // Re-brand — pack forced to ⚉ • <PACK_NAME> when set (@crysnovax—FIX06-08-26)
-            buffer = await addExif(buffer, getPackName(), 'CODY AI', ['🔥']);
+            // Re-brand — pack is ⚉ • <PACK_NAME>, author follows STICKER_AUTHOR → PACK_NAME → default
+            // (no hardcoded CODY AI) (@crysnovax—FIX08-07-26)
+            const { pack: packName, author: packAuthor } = getStickerBranding();
+            buffer = await addExif(buffer, packName, packAuthor, ['🔥']);
 
             await sock.sendMessage(m.chat, { sticker: buffer }, { quoted: m });
 

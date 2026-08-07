@@ -5,7 +5,7 @@ const { exec } = require('child_process');
 // which pulls in the native "sharp" module and crashes on hosts without a
 // prebuilt sharp binary (e.g. bot-hosting.net linux-x64).
 const { addExif } = require('../../../library/exif');
-const { getPackName } = require('../../Plugin/packname');
+const { getStickerBranding } = require('../../Plugin/packname');
 
 module.exports = {
     name: 'sticker',
@@ -89,8 +89,10 @@ module.exports = {
             // Read the generated WebP
             let buffer = fs.readFileSync(output);
 
-            // Add sticker metadata (pack/author) — pack forced to ⚉ • <PACK_NAME> when set (@crysnovax—FIX06-08-26)
-            buffer = await addExif(buffer, getPackName(), 'CODY AI', ['🔥']);
+            // Add sticker metadata (pack/author) — pack is ⚉ • <PACK_NAME>, author follows
+            // STICKER_AUTHOR → PACK_NAME → default (no hardcoded CODY AI) (@crysnovax—FIX08-07-26)
+            const { pack: packName, author: packAuthor } = getStickerBranding();
+            buffer = await addExif(buffer, packName, packAuthor, ['🔥']);
 
             // Send the sticker
             await sock.sendMessage(m.chat, { sticker: buffer }, { quoted: m });
