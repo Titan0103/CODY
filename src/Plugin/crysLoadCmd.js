@@ -53,9 +53,9 @@ const loadCommands = () => {
                     if (!cmd || typeof cmd !== 'object') {
                         throw new TypeError('command export must be an object or array of objects');
                     }
-                    if (typeof cmd.name !== 'string' || !cmd.name.trim()) {
-                        throw new TypeError('command is missing a valid name');
-                    }
+             //       if (typeof cmd.name !== 'string' || !cmd.name.trim()) {
+                 //       throw new TypeError('command is missing a valid name');
+             //       }
                     if (typeof cmd.execute !== 'function') {
                         throw new TypeError(`command "${cmd.name}" is missing execute()`);
                     }
