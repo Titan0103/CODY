@@ -323,7 +323,7 @@ const handleMessage = async (sock, m, store) => {
         }
 
         if (cmdReact) {
-            await sock.sendMessage(m.chat, { react: { text: cmd.reactions?.start || '⚉', key: m.key } }).catch(() => {});
+            await sock.sendMessage(m.chat, { react: { text: cmd.reactions?.start || '🍂', key: m.key } }).catch(() => {});
         }
 
         console.log(chalk.cyan(`[CMD] ${prefix}${cmdName} | ${senderNum}${isOwner ? ' [OWNER]' : isDual ? ' [DUAL]' : isSudo ? ' [SUDO]' : ''}`));
