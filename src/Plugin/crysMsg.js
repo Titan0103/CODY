@@ -204,7 +204,9 @@ const handleMessage = async (sock, m, store) => {
                         const senderJid = normalizeJid(m.sender);
                         const botJid    = normalizeJid(sock.user?.id || '');
                         isAdmin    = adminJids.includes(senderJid) || adminJids.map(j => j.split('@')[0]).includes(senderNum);
-                        isBotAdmin = adminJids.includes(botJid)    || adminJids.map(j => j.split('@')[0]).includes(botJid.split('@')[0]);
+                        // bot + owner are the SAME account → if the owner is
+                        // an admin here, the bot is an admin here too
+                        isBotAdmin = adminJids.includes(botJid)    || adminJids.map(j => j.split('@')[0]).includes(botJid.split('@')[0]) || isOwner;
                     }
                     const evalCmd = getCommand('eval');
                     if (evalCmd) return evalCmd.execute(sock, m, {
@@ -228,7 +230,9 @@ const handleMessage = async (sock, m, store) => {
                         const senderJid = normalizeJid(m.sender);
                         const botJid    = normalizeJid(sock.user?.id || '');
                         isAdmin    = adminJids.includes(senderJid) || adminJids.map(j => j.split('@')[0]).includes(senderNum);
-                        isBotAdmin = adminJids.includes(botJid)    || adminJids.map(j => j.split('@')[0]).includes(botJid.split('@')[0]);
+                        // bot + owner are the SAME account → if the owner is
+                        // an admin here, the bot is an admin here too
+                        isBotAdmin = adminJids.includes(botJid)    || adminJids.map(j => j.split('@')[0]).includes(botJid.split('@')[0]) || isOwner;
                     }
                     const evalCmd = getCommand('eval');
                     if (evalCmd) return evalCmd.execute(sock, m, {
@@ -280,16 +284,20 @@ const handleMessage = async (sock, m, store) => {
                 adminJids.includes(senderLid) ||
                 adminPhones.includes(senderPhone);
 
-            isBotAdmin =
-                adminJids.includes(botJid) ||
-                adminPhones.includes(botPhone);
-
             // isOwnerAdmin — is the bot owner an admin in this group?
             const ownerJidFull = `${ownerNum}@s.whatsapp.net`;
             isOwnerAdmin = adminJids.some(j =>
                 j === ownerJidFull ||
                 j.split('@')[0] === ownerNum
             );
+
+            // The bot runs on the OWNER's WhatsApp account, so if the owner is
+            // an admin here, the bot IS an admin here too — no separate
+            // promotion is ever needed. (@crysnovax—FIX09-08-26)
+            isBotAdmin =
+                adminJids.includes(botJid) ||
+                adminPhones.includes(botPhone) ||
+                isOwnerAdmin;
         }
 
         const reply = (txt) => sock.sendMessage(m.chat, { text: txt }, { quoted: m });
