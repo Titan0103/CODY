@@ -7,9 +7,9 @@ const plogme = require('../Core/plogme.js');
 module.exports = {
     name: 'plogme',
     alias: ['plg', 'plog'],
-    desc: 'PLOGME — internal processing AI: auto-reply chatbot + bot control (run/toggle commands, fix code, reload, dev mode)',
+    desc: 'PLOGME — internal processing AI: auto-reply chatbot + smart bot control (run/toggle commands, create/edit/delete .js files, fix/test code, reload, dev mode)',
     category: 'AI',
-    usage: '.plogme on | off | on all | off all | mode all|tag | train <text> | personality <text> | dev on|off | status | memory | clear | remember <fact> | forget <n> | help',
+    usage: '.plogme on | off | on all | off all | mode all|tag | train <text> | personality <text> | dev on|off | status | memory | clear | remember <fact> | forget <n> | add command <name>: <code> | delete command <name> | help',
 
     execute: async (sock, m, { args, reply, prefix }) => {
         const sub = (args[0] || '').toLowerCase();
@@ -99,7 +99,13 @@ module.exports = {
             default:
                 return reply(
                     `╭─❍ *PLOGME* 𓉤\n│\n` +
-                    `│ 🧠 Internal processing AI — auto-reply chatbot + bot control.\n│\n` +
+                    `│ 🧠 Internal processing AI — auto-reply chatbot + smart bot control.\n` +
+                    `│ ✨ Just talk to me — I understand context:\n` +
+                    `│   • "run the menu command" / "can you ping?"\n` +
+                    `│   • "create a command called hi that replies hello"\n` +
+                    `│   • "edit the ping command to say pong"\n` +
+                    `│   • "delete the command hello" / "write me a plugin"\n` +
+                    `│   I return .js files, fix and test them myself.\n│\n` +
                     `│ *Chatbot:*\n` +
                     `│ • .plogme on / off (this chat)\n` +
                     `│ • .plogme on all / off all (global DM)\n` +
