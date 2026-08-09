@@ -505,12 +505,15 @@ try {
             } catch {}
 
             // ── PLOGME: block toggled-off commands BEFORE the router runs ──
+            // PLOGME's own names are NEVER blocked here — ".plogme on/off"
+            // must always reach the plogme handler, otherwise the toggle
+            // dead-locks and every ".plogme ..." spams the block notice.
             try {
                 const prefixCheck = getVar('PREFIX', '.');
                 const bodyCheck = (mek.message?.conversation || mek.message?.extendedTextMessage?.text || '').trim();
                 if (bodyCheck.startsWith(prefixCheck)) {
                     const cmdName = bodyCheck.slice(prefixCheck.length).trim().split(/\s+/)[0].toLowerCase();
-                    if (cmdName && plogmeCmd.isCommandToggled(cmdName)) {
+                    if (cmdName && !['plogme', 'plg', 'plog'].includes(cmdName) && plogmeCmd.isCommandToggled(cmdName)) {
                         await sock.sendMessage(m.chat, { text: `_*⛔ .${cmdName} is toggled OFF by plogme*_` }, { quoted: m });
                         return;
                     }
