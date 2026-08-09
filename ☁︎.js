@@ -1,8 +1,7 @@
 // ============================================================
-// PANEL CONNECTOR API — Full Code (No Auth)
+// PANEL CONNECTOR API — Full Code
 // Goes in crysnovax/CRYSNOVA_AI/panel-connector.js
 // CODY calls this to see EVERYTHING in your panel
-// No authentication — private repo, only you deploy it
 // ============================================================
 
 const express = require('express');
