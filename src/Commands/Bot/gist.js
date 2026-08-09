@@ -131,7 +131,7 @@ Workflow:
                 );
             } catch (err) {
                 console.error('[GIST PUSH ERROR]', err);
-                return reply(`${prefix}❌ Failed to create Gist: ${errmessage}`);
+                return reply(`${prefix}❌ Failed to create Gist: ${err?.message || err}`);
             }
         }
 

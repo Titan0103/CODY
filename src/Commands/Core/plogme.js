@@ -57,6 +57,7 @@ function saveJson(file, data) {
 
 /* ───────────────────────── state helpers ───────────────────────── */
 const isEnabled = (chat) => loadJson(FILES.toggle)[chat] === true;
+const hasExplicitToggle = (chat) => Object.prototype.hasOwnProperty.call(loadJson(FILES.toggle), chat);
 const setEnabled = (chat, v) => { const d = loadJson(FILES.toggle); d[chat] = !!v; saveJson(FILES.toggle, d); };
 
 const isGlobalPrivateEnabled = () => loadJson(FILES.globalPriv, { enabled: false }).enabled === true;
@@ -102,6 +103,7 @@ const getToggledList = () => Object.entries(loadJson(FILES.toggled)).filter(([, 
 // the user chose, and the model chain the chatbot actually answers with.
 // @crysnovax—FIX08-07-26
 async function askAI(prompt) {
+    // Primary free endpoints — /ai/ch first (verified live), then the rest
     const endpoints = [
         `${PREXZY}/ai/ch?q=`,
         `${PREXZY}/ai/askgpt5?prompt=`,
@@ -112,13 +114,51 @@ async function askAI(prompt) {
     ];
     for (const ep of endpoints) {
         try {
-            const res = await axios.get(ep + encodeURIComponent(prompt), { timeout: 30000 });
+            const res = await axios.get(ep + encodeURIComponent(prompt), { timeout: 15000 });
             const data = res.data;
             const txt = data?.response || data?.result || data?.text || data?.message || data?.output
                 || (typeof data === 'string' ? data : '');
             if (typeof txt === 'string' && txt.trim().length > 3) return txt.trim();
         } catch {}
     }
+
+    // GROQ fallback — only when a key is configured (@crysnovax—FIX09-08-26)
+    try {
+        const groqKey = process.env.GROQ_KEY || getVar('GROQ_KEY')
+            || process.env.GROQ_API_KEY || getVar('GROQ_API_KEY') || '';
+        if (groqKey) {
+            const res = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
+                model: 'llama-3.3-70b-versatile',
+                messages: [{ role: 'user', content: prompt }],
+                temperature: 0.7,
+                max_tokens: 800
+            }, {
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${groqKey}` },
+                timeout: 30000
+            });
+            const txt = res.data?.choices?.[0]?.message?.content;
+            if (typeof txt === 'string' && txt.trim().length > 3) return txt.trim();
+        }
+    } catch {}
+
+    // OpenAI fallback — only when a key is configured
+    try {
+        const openaiKey = process.env.OPENAI_API_KEY || getVar('OPENAI_API_KEY') || '';
+        if (openaiKey) {
+            const res = await axios.post('https://api.openai.com/v1/chat/completions', {
+                model: 'gpt-4o-mini',
+                messages: [{ role: 'user', content: prompt }],
+                temperature: 0.7,
+                max_tokens: 800
+            }, {
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openaiKey}` },
+                timeout: 30000
+            });
+            const txt = res.data?.choices?.[0]?.message?.content;
+            if (typeof txt === 'string' && txt.trim().length > 3) return txt.trim();
+        }
+    } catch {}
+
     return null;
 }
 
@@ -391,9 +431,14 @@ async function execute(sock, m, opts) {
         }
 
         // Auto-reply chatbot (works like the old chatbot, but always-on for
-        // privileged users even in commands they own)
+        // privileged users even in commands they own).
+        // FIX09-08-26: DMs are ON by default so the JARVIS-style chatbot works
+        // out of the box — an explicit `.plogme off` in a chat is still honored.
         let on = isEnabled(m.chat);
-        if (!m.isGroup && isGlobalPrivateEnabled()) on = true;
+        if (!m.isGroup) {
+            if (!on && isGlobalPrivateEnabled()) on = true;
+            if (!on && getVar('PLOGME_DM', true) !== false && !hasExplicitToggle(m.chat)) on = true;
+        }
         if (!on) return false;
 
         // never respond to bot commands (router handles them)
@@ -408,7 +453,8 @@ async function execute(sock, m, opts) {
             if (!mentioned.some(j => j === botJid || (lid && j === String(lid).replace(/:\d+@/, '@')))) return false;
         }
 
-        if (isDev()) await sock.sendPresenceUpdate('composing', m.chat).catch(() => {});
+        // typing indicator while the AI thinks (always, not just dev mode)
+        await sock.sendPresenceUpdate('composing', m.chat).catch(() => {});
 
         addToMemory(m.chat, 'user', text);
         const prompt = buildPrompt(m.chat, text);
@@ -417,6 +463,7 @@ async function execute(sock, m, opts) {
 
         addToMemory(m.chat, 'assistant', answer);
         await opts.reply(answer);
+        await sock.sendPresenceUpdate('paused', m.chat).catch(() => {});
         return true;
     } catch (err) {
         console.error('[PLOGME EXECUTE ERROR]', err.message);
@@ -427,6 +474,7 @@ async function execute(sock, m, opts) {
 module.exports = {
     execute,
     isEnabled,
+    hasExplicitToggle,
     setEnabled,
     isGlobalPrivateEnabled,
     setGlobalPrivateEnabled,

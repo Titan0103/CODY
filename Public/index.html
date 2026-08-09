@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CODY AI — Dashboard</title>
+    <title>CODY AI — Panel Console</title>
     <script src="/socket.io/socket.io.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         :root {
             --bg-primary: #0a0a0f;
@@ -25,11 +25,7 @@
             --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             font-family: var(--font-main);
@@ -40,358 +36,172 @@
         }
 
         .bg-grid {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 0;
-            opacity: 0.4;
-            background-image: 
+            position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: 0.4;
+            background-image:
                 linear-gradient(rgba(0, 255, 240, 0.03) 1px, transparent 1px),
                 linear-gradient(90deg, rgba(0, 255, 240, 0.03) 1px, transparent 1px);
             background-size: 50px 50px;
         }
-
         .bg-glow {
-            position: fixed;
-            top: -20%;
-            left: -10%;
-            width: 50%;
-            height: 50%;
+            position: fixed; top: -20%; left: -10%; width: 50%; height: 50%;
             background: radial-gradient(circle, rgba(0, 255, 240, 0.08) 0%, transparent 70%);
-            pointer-events: none;
-            z-index: 0;
-            animation: float 8s ease-in-out infinite;
+            pointer-events: none; z-index: 0; animation: float 8s ease-in-out infinite;
         }
-
         .bg-glow-2 {
-            position: fixed;
-            bottom: -20%;
-            right: -10%;
-            width: 50%;
-            height: 50%;
+            position: fixed; bottom: -20%; right: -10%; width: 50%; height: 50%;
             background: radial-gradient(circle, rgba(168, 85, 247, 0.06) 0%, transparent 70%);
-            pointer-events: none;
-            z-index: 0;
-            animation: float 10s ease-in-out infinite reverse;
+            pointer-events: none; z-index: 0; animation: float 10s ease-in-out infinite reverse;
         }
-
         @keyframes float {
             0%, 100% { transform: translate(0, 0) scale(1); }
             50% { transform: translate(20px, -20px) scale(1.05); }
         }
 
-        .container {
-            position: relative;
-            z-index: 1;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
+        .container { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 2rem; }
 
         .header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 2.5rem;
-            padding-bottom: 1.5rem;
-            border-bottom: 1px solid var(--border-color);
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border-color);
         }
-
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
+        .brand { display: flex; align-items: center; gap: 1rem; }
         .brand-logo {
-            width: 48px;
-            height: 48px;
+            width: 48px; height: 48px; border-radius: 12px;
             background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 800;
-            font-size: 1.2rem;
-            color: var(--bg-primary);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 1.2rem; color: var(--bg-primary);
             box-shadow: 0 0 20px rgba(0, 255, 240, 0.3);
         }
-
         .brand-text h1 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            letter-spacing: -0.02em;
+            font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em;
             background: linear-gradient(135deg, var(--text-primary), var(--accent-cyan));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
         }
-
-        .brand-text p {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-            margin-top: 2px;
-        }
+        .brand-text p { font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px; }
+        .header-right { display: flex; align-items: center; gap: 0.75rem; }
 
         .status-badge {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 1rem;
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 100px;
-            font-size: 0.85rem;
-            font-weight: 500;
-            transition: all 0.3s ease;
+            display: flex; align-items: center; gap: 0.5rem;
+            padding: 0.5rem 1rem; background: var(--bg-card);
+            border: 1px solid var(--border-color); border-radius: 100px;
+            font-size: 0.85rem; font-weight: 500; transition: all 0.3s ease;
         }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-green); box-shadow: 0 0 8px var(--accent-green); animation: pulse 2s ease-in-out infinite; }
+        .status-dot.disconnected { background: var(--accent-red); box-shadow: 0 0 8px var(--accent-red); }
+        .status-dot.connecting { background: var(--accent-yellow); box-shadow: 0 0 8px var(--accent-yellow); }
+        @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.2); } }
 
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--accent-green);
-            box-shadow: 0 0 8px var(--accent-green);
-            animation: pulse 2s ease-in-out infinite;
-        }
-
-        .status-dot.disconnected {
-            background: var(--accent-red);
-            box-shadow: 0 0 8px var(--accent-red);
-        }
-
-        .status-dot.connecting {
-            background: var(--accent-yellow);
-            box-shadow: 0 0 8px var(--accent-yellow);
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.6; transform: scale(1.2); }
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 1.25rem;
-            margin-bottom: 2rem;
-        }
-
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem; margin-bottom: 1.5rem; }
         .stat-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            padding: 1.5rem;
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
+            background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px;
+            padding: 1.25rem 1.5rem; transition: all 0.3s ease; position: relative; overflow: hidden;
         }
-
         .stat-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 2px;
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 2px;
             background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple));
-            opacity: 0;
-            transition: opacity 0.3s ease;
+            opacity: 0; transition: opacity 0.3s ease;
         }
-
-        .stat-card:hover {
-            transform: translateY(-2px);
-            border-color: var(--accent-cyan);
-            box-shadow: 0 8px 32px rgba(0, 255, 240, 0.08);
-        }
-
-        .stat-card:hover::before {
-            opacity: 1;
-        }
-
-        .stat-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-            margin-bottom: 1rem;
-        }
-
-        .stat-icon.cyan { background: rgba(0, 255, 240, 0.1); }
-        .stat-icon.green { background: rgba(0, 255, 136, 0.1); }
-        .stat-icon.yellow { background: rgba(255, 215, 0, 0.1); }
-        .stat-icon.purple { background: rgba(168, 85, 247, 0.1); }
-
-        .stat-label {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 0.5rem;
-        }
-
-        .stat-value {
-            font-family: var(--font-mono);
-            font-size: 1.75rem;
-            font-weight: 700;
-            color: var(--text-primary);
-            letter-spacing: -0.02em;
-        }
-
+        .stat-card:hover { transform: translateY(-2px); border-color: var(--accent-cyan); box-shadow: 0 8px 32px rgba(0, 255, 240, 0.08); }
+        .stat-card:hover::before { opacity: 1; }
+        .stat-row { display: flex; align-items: center; justify-content: space-between; }
+        .stat-label { font-size: 0.72rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.06em; }
+        .stat-value { font-family: var(--font-mono); font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; }
         .stat-value.cyan { color: var(--accent-cyan); }
         .stat-value.green { color: var(--accent-green); }
         .stat-value.yellow { color: var(--accent-yellow); }
         .stat-value.purple { color: var(--accent-purple); }
+        .stat-sub { font-size: 0.68rem; color: var(--text-muted); margin-top: 0.25rem; font-family: var(--font-mono); }
 
-        .content-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1.25rem;
-            margin-bottom: 2rem;
+        .content-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1.5rem; }
+        @media (max-width: 900px) {
+            .content-grid { grid-template-columns: 1fr; }
+            .header { flex-direction: column; gap: 1rem; text-align: center; }
         }
 
-        @media (max-width: 768px) {
-            .content-grid {
-                grid-template-columns: 1fr;
-            }
-            .header {
-                flex-direction: column;
-                gap: 1rem;
-                text-align: center;
-            }
-        }
+        .panel { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.5rem; }
+        .panel-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color); }
+        .panel-header h2 { font-size: 1rem; font-weight: 600; }
+        .panel-header .icon { font-size: 1.2rem; }
+        .info-row { display: flex; justify-content: space-between; align-items: center; padding: 0.7rem 0; border-bottom: 1px solid rgba(255,255,255,0.03); }
+        .info-row:last-child { border-bottom: none; }
+        .info-label { font-size: 0.85rem; color: var(--text-secondary); }
+        .info-value { font-family: var(--font-mono); font-size: 0.9rem; font-weight: 500; }
+        .info-value.highlight { color: var(--accent-cyan); }
 
-        .panel {
-            background: var(--bg-card);
+        /* ═══════════ RENDER-STYLE CONSOLE ═══════════ */
+        .console-wrap { margin-bottom: 1.5rem; }
+        .console {
+            background: #0b0e14;
             border: 1px solid var(--border-color);
-            border-radius: 16px;
-            padding: 1.5rem;
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 255, 240, 0.05);
         }
-
-        .panel-header {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            margin-bottom: 1.25rem;
-            padding-bottom: 1rem;
+        .console-titlebar {
+            display: flex; align-items: center; gap: 0.75rem;
+            padding: 0.65rem 1rem;
+            background: linear-gradient(180deg, #1a1f2b, #141824);
             border-bottom: 1px solid var(--border-color);
         }
-
-        .panel-header h2 {
-            font-size: 1rem;
-            font-weight: 600;
-            color: var(--text-primary);
+        .traffic { display: flex; gap: 0.45rem; }
+        .traffic span { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+        .traffic .r { background: #ff5f57; }
+        .traffic .y { background: #febc2e; }
+        .traffic .g { background: #28c840; }
+        .console-title {
+            flex: 1; text-align: center;
+            font-family: var(--font-mono); font-size: 0.75rem; letter-spacing: 0.08em;
+            color: var(--text-secondary); text-transform: uppercase;
         }
-
-        .panel-header .icon {
-            font-size: 1.2rem;
+        .console-actions { display: flex; gap: 0.4rem; }
+        .console-btn {
+            background: rgba(255,255,255,0.05); border: 1px solid var(--border-color);
+            color: var(--text-secondary); font-family: var(--font-mono); font-size: 0.68rem;
+            padding: 0.3rem 0.7rem; border-radius: 6px; cursor: pointer; transition: all 0.2s ease;
         }
+        .console-btn:hover { color: var(--text-primary); border-color: var(--accent-cyan); background: rgba(0, 255, 240, 0.08); }
 
-        .info-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.75rem 0;
-            border-bottom: 1px solid rgba(255,255,255,0.03);
+        .console-screen {
+            font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.65;
+            padding: 1rem 1.1rem; height: 430px; max-height: 60vh; overflow-y: auto;
+            scrollbar-width: thin; scrollbar-color: var(--border-color) transparent;
+            background:
+                radial-gradient(ellipse at 20% 0%, rgba(0, 255, 240, 0.04), transparent 55%),
+                radial-gradient(ellipse at 90% 100%, rgba(168, 85, 247, 0.04), transparent 55%),
+                #0b0e14;
         }
+        .console-screen::-webkit-scrollbar { width: 6px; }
+        .console-screen::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
 
-        .info-row:last-child {
-            border-bottom: none;
+        .cl { display: flex; align-items: baseline; gap: 0.55rem; padding: 0.05rem 0; white-space: pre-wrap; word-break: break-word; }
+        .cl .t { color: var(--text-muted); flex-shrink: 0; font-size: 0.7rem; }
+        .cl .badge {
+            flex-shrink: 0; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.05em;
+            padding: 0.06rem 0.4rem; border-radius: 4px; min-width: 46px; text-align: center;
         }
+        .cl.info .badge { background: rgba(0, 255, 240, 0.12); color: var(--accent-cyan); border: 1px solid rgba(0, 255, 240, 0.25); }
+        .cl.ok .badge { background: rgba(0, 255, 136, 0.12); color: var(--accent-green); border: 1px solid rgba(0, 255, 136, 0.25); }
+        .cl.warn .badge { background: rgba(255, 215, 0, 0.12); color: var(--accent-yellow); border: 1px solid rgba(255, 215, 0, 0.25); }
+        .cl.error .badge { background: rgba(255, 71, 87, 0.12); color: var(--accent-red); border: 1px solid rgba(255, 71, 87, 0.25); }
+        .cl.debug .badge { background: rgba(168, 85, 247, 0.12); color: var(--accent-purple); border: 1px solid rgba(168, 85, 247, 0.25); }
+        .cl .m { color: var(--text-secondary); }
+        .cl.ok .m { color: var(--accent-green); }
+        .cl.error .m { color: #ff8f97; }
+        .cl.warn .m { color: #ffe08a; }
+        .cl.info .m { color: #b8c6d9; }
 
-        .info-label {
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-        }
+        .cl.banner { display: block; }
+        .cl.banner .m { color: var(--accent-cyan); text-shadow: 0 0 12px rgba(0, 255, 240, 0.35); }
 
-        .info-value {
-            font-family: var(--font-mono);
-            font-size: 0.9rem;
-            color: var(--text-primary);
-            font-weight: 500;
-        }
+        .cursor { display: inline-block; width: 8px; height: 14px; background: var(--accent-cyan); vertical-align: middle; animation: blink 1s steps(1) infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
 
-        .info-value.highlight {
-            color: var(--accent-cyan);
-        }
+        .footer { text-align: center; padding: 2rem 0; color: var(--text-muted); font-size: 0.8rem; border-top: 1px solid var(--border-color); }
+        .footer a { color: var(--accent-cyan); text-decoration: none; }
 
-        .terminal {
-            background: var(--bg-primary);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 1rem;
-            font-family: var(--font-mono);
-            font-size: 0.8rem;
-            line-height: 1.6;
-            max-height: 300px;
-            overflow-y: auto;
-            scrollbar-width: thin;
-            scrollbar-color: var(--border-color) transparent;
-        }
-
-        .terminal::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .terminal::-webkit-scrollbar-thumb {
-            background: var(--border-color);
-            border-radius: 3px;
-        }
-
-        .log-entry {
-            padding: 0.25rem 0;
-            color: var(--text-secondary);
-            border-left: 2px solid transparent;
-            padding-left: 0.75rem;
-            margin-left: -0.75rem;
-        }
-
-        .log-entry.info { border-left-color: var(--accent-cyan); color: var(--text-primary); }
-        .log-entry.success { border-left-color: var(--accent-green); color: var(--accent-green); }
-        .log-entry.warn { border-left-color: var(--accent-yellow); color: var(--accent-yellow); }
-        .log-entry.error { border-left-color: var(--accent-red); color: var(--accent-red); }
-
-        .log-time {
-            color: var(--text-muted);
-            margin-right: 0.5rem;
-        }
-
-        .footer {
-            text-align: center;
-            padding: 2rem 0;
-            color: var(--text-muted);
-            font-size: 0.8rem;
-            border-top: 1px solid var(--border-color);
-            margin-top: 2rem;
-        }
-
-        .footer a {
-            color: var(--accent-cyan);
-            text-decoration: none;
-        }
-
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: var(--bg-primary);
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: var(--border-color);
-            border-radius: 4px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--text-muted);
-        }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-primary); }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
     </style>
 </head>
 <body>
@@ -408,133 +218,171 @@
                     <p>Powered by CRYSNOVA AI — Professional WhatsApp Bot Engine</p>
                 </div>
             </div>
-            <div class="status-badge" id="statusBadge">
-                <div class="status-dot connecting" id="statusDot"></div>
-                <span id="statusText">Connecting...</span>
+            <div class="header-right">
+                <div class="status-badge" id="statusBadge">
+                    <div class="status-dot connecting" id="statusDot"></div>
+                    <span id="statusText">Connecting...</span>
+                </div>
             </div>
         </header>
 
         <div class="stats-grid">
             <div class="stat-card">
-                <div class="stat-icon cyan">📨</div>
-                <div class="stat-label">Messages Processed</div>
-                <div class="stat-value cyan" id="statMessages">0</div>
+                <div class="stat-row">
+                    <div class="stat-label">Messages</div>
+                    <div class="stat-value cyan" id="statMessages">0</div>
+                </div>
+                <div class="stat-sub">processed</div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon green">⚡</div>
-                <div class="stat-label">Commands Executed</div>
-                <div class="stat-value green" id="statCommands">0</div>
+                <div class="stat-row">
+                    <div class="stat-label">Commands</div>
+                    <div class="stat-value green" id="statCommands">0</div>
+                </div>
+                <div class="stat-sub">executed</div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon yellow">⏱️</div>
-                <div class="stat-label">Uptime</div>
-                <div class="stat-value yellow" id="statUptime">00:00:00</div>
+                <div class="stat-row">
+                    <div class="stat-label">Uptime</div>
+                    <div class="stat-value yellow" id="statUptime">00:00:00</div>
+                </div>
+                <div class="stat-sub">since start</div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon purple">📅</div>
-                <div class="stat-label">Started</div>
-                <div class="stat-value purple" id="statStartTime">--</div>
+                <div class="stat-row">
+                    <div class="stat-label">Memory</div>
+                    <div class="stat-value purple" id="statMem">—</div>
+                </div>
+                <div class="stat-sub" id="statNode">node —</div>
+            </div>
+        </div>
+
+        <!-- ═══════════ RENDER-STYLE CONSOLE ═══════════ -->
+        <div class="console-wrap">
+            <div class="console">
+                <div class="console-titlebar">
+                    <div class="traffic"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+                    <div class="console-title">CODY AI · Live Console</div>
+                    <div class="console-actions">
+                        <button class="console-btn" id="btnClear">clear</button>
+                        <button class="console-btn" id="btnCopy">copy</button>
+                    </div>
+                </div>
+                <div class="console-screen" id="console"></div>
             </div>
         </div>
 
         <div class="content-grid">
             <div class="panel">
-                <div class="panel-header">
-                    <span class="icon">📱</span>
-                    <h2>Bot Information</h2>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Status</span>
-                    <span class="info-value highlight" id="botStatus">Connecting...</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Number</span>
-                    <span class="info-value" id="botNumber">--</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Name</span>
-                    <span class="info-value" id="botName">--</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Dashboard URL</span>
-                    <span class="info-value" id="dashboardUrl">--</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Version</span>
-                    <span class="info-value">v2.0.0</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Platform</span>
-                    <span class="info-value">CRYSNOVA AI Engine</span>
-                </div>
+                <div class="panel-header"><span class="icon">📱</span><h2>Bot Information</h2></div>
+                <div class="info-row"><span class="info-label">Status</span><span class="info-value highlight" id="botStatus">Connecting...</span></div>
+                <div class="info-row"><span class="info-label">Number</span><span class="info-value" id="botNumber">--</span></div>
+                <div class="info-row"><span class="info-label">Name</span><span class="info-value" id="botName">--</span></div>
+                <div class="info-row"><span class="info-label">Dashboard URL</span><span class="info-value" id="dashboardUrl">--</span></div>
+                <div class="info-row"><span class="info-label">Platform</span><span class="info-value" id="botPlatform">--</span></div>
+                <div class="info-row"><span class="info-label">Started</span><span class="info-value" id="statStartTime">--</span></div>
             </div>
 
             <div class="panel">
-                <div class="panel-header">
-                    <span class="icon">📜</span>
-                    <h2>Live Logs</h2>
-                </div>
-                <div class="terminal" id="terminal">
-                    <div class="log-entry info">
-                        <span class="log-time" id="logTime0">--:--:--</span>
-                        Dashboard initialized. Waiting for bot connection...
-                    </div>
-                </div>
+                <div class="panel-header"><span class="icon">⚙️</span><h2>Engine</h2></div>
+                <div class="info-row"><span class="info-label">Version</span><span class="info-value">v2.0.0</span></div>
+                <div class="info-row"><span class="info-label">Framework</span><span class="info-value">CRYSNOVA AI V2</span></div>
+                <div class="info-row"><span class="info-label">Socket.IO</span><span class="info-value highlight" id="sockState">connecting…</span></div>
+                <div class="info-row"><span class="info-label">Console Stream</span><span class="info-value highlight" id="consoleState">waiting…</span></div>
+                <div class="info-row"><span class="info-label">CPU Load</span><span class="info-value" id="statCpu">--</span></div>
+                <div class="info-row"><span class="info-label">Node</span><span class="info-value" id="statNodeVer">--</span></div>
             </div>
         </div>
 
         <footer class="footer">
             <p>CODY AI v2.0.0 — Powered by <a href="https://github.com/crysnovax" target="_blank">CRYSNOVA AI</a></p>
-            <p style="margin-top: 0.5rem;">© 2026 crysnovax. All rights reserved.</p>
+            <p style="margin-top: 0.4rem;">© 2026 crysnovax. All rights reserved.</p>
         </footer>
     </div>
 
     <script>
         const socket = io();
-        const terminal = document.getElementById('terminal');
+        const consoleEl = document.getElementById('console');
+        const MAX_LINES = 400;
         let startTime = null;
         let uptimeInterval = null;
 
+        /* ── helpers ── */
+        function pad(n) { return String(n).padStart(2, '0'); }
         function formatTime(ms) {
-            const seconds = Math.floor(ms / 1000);
-            const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
-            const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
-            const s = (seconds % 60).toString().padStart(2, '0');
-            return `${h}:${m}:${s}`;
+            const s = Math.floor(ms / 1000);
+            return `${pad(Math.floor(s / 3600))}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`;
         }
-
-        function getTimestamp() {
-            const now = new Date();
-            return now.toTimeString().split(' ')[0];
+        function ts(ms) {
+            const d = new Date(ms || Date.now());
+            return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
         }
+        const stripAnsi = (s) => String(s || '').replace(/\x1b\[[0-9;]*m/g, '').trim();
 
-        function addLog(message, type = 'info') {
-            const entry = document.createElement('div');
-            entry.className = `log-entry ${type}`;
-            entry.innerHTML = `<span class="log-time">${getTimestamp()}</span> ${message}`;
-            terminal.appendChild(entry);
-            terminal.scrollTop = terminal.scrollHeight;
+        /* ── boot banner (Render-style boot sequence) ── */
+        const BANNER = [
+            ' ██████╗ ██████╗ ██████╗ ██╗   ██╗    █████╗ ██╗',
+            '██╔════╝██╔═══██╗██╔══██╗╚██╗ ██╔╝   ██╔══██╗██║',
+            '██║     ██║   ██║██║  ██║ ╚████╔╝    ███████║██║',
+            '██║     ██║   ██║██║  ██║  ╚██╔╝     ██╔══██║██║',
+            '╚██████╗╚██████╔╝██████╔╝   ██║      ██║  ██║██║',
+            ' ╚═════╝ ╚═════╝ ╚═════╝    ╚═╝      ╚═╝  ╚═╝╚═╝'
+        ];
 
-            while (terminal.children.length > 50) {
-                terminal.removeChild(terminal.firstChild);
+        function addLine(text, level = 'info', time = Date.now()) {
+            const line = document.createElement('div');
+            line.className = `cl ${level}`;
+            line.innerHTML =
+                `<span class="t">${ts(time)}</span>` +
+                `<span class="badge">${level.toUpperCase()}</span>` +
+                `<span class="m"></span>`;
+            line.querySelector('.m').textContent = stripAnsi(text);
+            consoleEl.appendChild(line);
+
+            while (consoleEl.children.length > MAX_LINES) {
+                consoleEl.removeChild(consoleEl.firstChild);
             }
+            consoleEl.scrollTop = consoleEl.scrollHeight;
         }
 
+        function addBannerLine(text) {
+            const line = document.createElement('div');
+            line.className = 'cl banner';
+            line.innerHTML = `<span class="m"></span>`;
+            line.querySelector('.m').textContent = text;
+            consoleEl.appendChild(line);
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+        }
+
+        // boot sequence — printed like Render's deploy console
+        (async () => {
+            await new Promise(r => setTimeout(r, 150));
+            addBannerLine('╔══════════════════════════════════════════════════════╗');
+            BANNER.forEach(l => addBannerLine(l));
+            addBannerLine('╚══════════════════════════════════════════════════════╝');
+            addLine('CODY AI Engine v2.0.0 — initializing…', 'info');
+            await new Promise(r => setTimeout(r, 200));
+            addLine('Loading command registry…', 'info');
+            await new Promise(r => setTimeout(r, 200));
+            addLine('Establishing WhatsApp session…', 'info');
+            await new Promise(r => setTimeout(r, 200));
+            addLine('Waiting for bot instance…', 'warn');
+        })();
+
+        /* ── status ── */
         function updateStatus(status, number = '', name = '') {
             const dot = document.getElementById('statusDot');
             const text = document.getElementById('statusText');
             const botStatus = document.getElementById('botStatus');
             const botNumber = document.getElementById('botNumber');
             const botName = document.getElementById('botName');
-
             dot.className = 'status-dot';
-            
             if (status === 'connected') {
                 dot.classList.add('connected');
                 text.textContent = 'Online';
                 botStatus.textContent = 'Connected ✅';
                 botStatus.style.color = 'var(--accent-green)';
-                addLog(`Bot connected successfully${number ? ' — ' + number : ''}`, 'success');
+                addLine(`Bot connected successfully${number ? ' — ' + number : ''}`, 'ok');
             } else if (status === 'connecting') {
                 dot.classList.add('connecting');
                 text.textContent = 'Connecting...';
@@ -545,61 +393,89 @@
                 text.textContent = 'Offline';
                 botStatus.textContent = 'Disconnected ❌';
                 botStatus.style.color = 'var(--accent-red)';
-                addLog('Bot disconnected', 'error');
+                addLine('Bot disconnected', 'error');
             }
-
             if (number) botNumber.textContent = number;
             if (name) botName.textContent = name;
         }
 
         function updateUptime() {
             if (!startTime) return;
-            const elapsed = Date.now() - startTime;
-            document.getElementById('statUptime').textContent = formatTime(elapsed);
+            document.getElementById('statUptime').textContent = formatTime(Date.now() - startTime);
         }
 
+        /* ── socket events ── */
         socket.on('connect', () => {
-            addLog('Dashboard connected to server', 'success');
+            document.getElementById('sockState').textContent = 'connected ✓';
+            document.getElementById('sockState').style.color = 'var(--accent-green)';
+            addLine('Dashboard connected to live console stream', 'ok');
         });
-
         socket.on('disconnect', () => {
             updateStatus('disconnected');
-            addLog('Dashboard disconnected from server', 'error');
+            document.getElementById('sockState').textContent = 'disconnected';
+            document.getElementById('sockState').style.color = 'var(--accent-red)';
+            addLine('Dashboard disconnected from server', 'error');
+        });
+
+        // live console stream from consoleBridge
+        socket.on('console-history', (history) => {
+            document.getElementById('consoleState').textContent = `streaming (${history.length} replayed)`;
+            document.getElementById('consoleState').style.color = 'var(--accent-cyan)';
+            (history || []).forEach(e => addLine(e.text, e.level, e.ts));
+        });
+        socket.on('console', (entry) => {
+            document.getElementById('consoleState').textContent = 'streaming live ✓';
+            document.getElementById('consoleState').style.color = 'var(--accent-green)';
+            if (entry) addLine(entry.text, entry.level, entry.ts);
         });
 
         socket.on('bot-status', (data) => {
             updateStatus(data.status, data.number, data.name);
-            
             if (data.status === 'connected' && data.number) {
-                document.getElementById('dashboardUrl').innerHTML = 
-                    `<a href="http://localhost:${location.port}" style="color: var(--accent-cyan); text-decoration: none;">localhost:${location.port}</a>`;
+                document.getElementById('dashboardUrl').textContent = window.location.host;
             }
+        });
+
+        socket.on('new-message', (d) => {
+            if (!d) return;
+            const who = d.isGroup ? `group ${d.chat}` : 'dm';
+            addLine(`📨 ${d.from} (${who}): ${d.text}`, 'debug');
         });
 
         socket.on('stats', (data) => {
-            if (data.messages !== undefined) {
-                document.getElementById('statMessages').textContent = data.messages.toLocaleString();
-            }
-            if (data.commands !== undefined) {
-                document.getElementById('statCommands').textContent = data.commands.toLocaleString();
-            }
+            if (data.messages !== undefined) document.getElementById('statMessages').textContent = data.messages.toLocaleString();
+            if (data.commands !== undefined) document.getElementById('statCommands').textContent = data.commands.toLocaleString();
             if (data.startTime) {
                 startTime = data.startTime;
                 document.getElementById('statStartTime').textContent = new Date(data.startTime).toLocaleString();
-                
-                if (!uptimeInterval) {
-                    uptimeInterval = setInterval(updateUptime, 1000);
-                }
+                if (!uptimeInterval) uptimeInterval = setInterval(updateUptime, 1000);
             }
-            if (data.uptime) {
-                document.getElementById('statUptime').textContent = formatTime(data.uptime);
-            }
+            if (data.uptime) document.getElementById('statUptime').textContent = formatTime(data.uptime);
+        });
+
+        // system info from the dashboard's own /health endpoint
+        fetch('/health').then(r => r.json()).then(h => {
+            document.getElementById('botPlatform').textContent = h.platform || '--';
+            document.getElementById('statNodeVer').textContent = h.nodeVersion || '--';
+            const mb = (h.memory?.rss || 0) / 1048576;
+            document.getElementById('statMem').textContent = mb ? mb.toFixed(0) + ' MB' : '--';
+            document.getElementById('statNode').textContent = `node ${h.nodeVersion || ''}`.trim();
+        }).catch(() => {
+            document.getElementById('statMem').textContent = '--';
+        });
+
+        /* ── console actions ── */
+        document.getElementById('btnClear').addEventListener('click', () => {
+            consoleEl.innerHTML = '';
+            addLine('Console cleared', 'info');
+        });
+        document.getElementById('btnCopy').addEventListener('click', () => {
+            const text = Array.from(consoleEl.querySelectorAll('.cl'))
+                .map(l => l.textContent).join('\n');
+            navigator.clipboard?.writeText(text).then(() => addLine('Console copied to clipboard', 'ok')).catch(() => {});
         });
 
         document.getElementById('dashboardUrl').textContent = window.location.host;
-        addLog('CODY AI Dashboard v2.0.0 loaded', 'info');
-        addLog('Waiting for bot instance...', 'info');
     </script>
 </body>
 </html>
-

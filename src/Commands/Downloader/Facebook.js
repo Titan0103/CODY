@@ -91,7 +91,7 @@ module.exports = {
             }, { quoted: m });
 
         } catch (err) {
-            reply(`${prefix}✘ Download failed: ${errmessage || 'Unknown error'}`);
+            reply(`${prefix}✘ Download failed: ${err?.message || err || 'Unknown error'}`);
         }
     }
 };

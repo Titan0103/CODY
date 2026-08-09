@@ -142,7 +142,7 @@ module.exports = {
             } catch (err) {
                 console.error('[COLLAGE PUSH ERROR]', err.message);
                 await sock.sendMessage(m.chat, { react: { text: '❔', key: m.key } }).catch(() => {});
-                reply(`${prefix}✘ Failed: ${errmessage}`);
+                reply(`${prefix}✘ Failed: ${err?.message || err}`);
             }
             return;
         }

@@ -1,22 +1,68 @@
 // autoApprove.js — group join requests get approved automatically after a
 // delay (default 60s, adjustable), with an optional country-code filter.
 // Vars: AUTO_APPROVE, AUTO_APPROVE_DELAY (seconds), AUTO_APPROVE_CC.
-// @crysnovax—FIX06-08-26
+//
+// FIX09-08-26 — rewritten for reliability:
+//  • detects approval-mode groups by EITHER metadata field
+//    (`joiningApprovalMode` OR `joinApprovalMode`)
+//  • fetches the pending request list through `groupRequestParticipantsList`
+//    (the same call the .approve command uses) instead of trusting the
+//    sometimes-stale `pendingParticipants` in cached metadata
+//  • approves through `groupRequestParticipantsUpdate` with a
+//    `groupAcceptJoinRequest` fallback
+//  • group list refreshes on `groups.upsert` events + periodic re-poll, and
+//    instantly when `.autoadd on` runs
+// @crysnovax—FIX06-08-26 / FIX09-08-26
 const { getVar } = require('./configManager');
 
 const pending = new Map(); // `${groupId}:${jid}` -> firstSeen timestamp
 let interval = null;
-let approvalGroups = []; // group metadata of groups with joiningApprovalMode on
+let approvalGroups = []; // group metadata of groups with join-approval mode on
 let tickCount = 0;
+let sockRef = null;
+
+const isApprovalGroup = (g) =>
+    !!g && (g.joiningApprovalMode === true || g.joinApprovalMode === true);
 
 async function refreshApprovalGroups(sock) {
     try {
         if (typeof sock.groupFetchAllParticipating !== 'function') return;
         const groups = await sock.groupFetchAllParticipating();
-        approvalGroups = Object.values(groups || {}).filter(g => g?.joiningApprovalMode);
+        approvalGroups = Object.values(groups || {}).filter(isApprovalGroup);
     } catch (err) {
         console.error('[AUTO-APPROVE] refresh failed:', err.message);
     }
+}
+
+// Pull the CURRENT pending request list for a group. This is the same method
+// the .approve command relies on — much more reliable than metadata cache.
+async function getPendingJids(sock, groupId) {
+    try {
+        if (typeof sock.groupRequestParticipantsList === 'function') {
+            const list = await sock.groupRequestParticipantsList(groupId);
+            if (Array.isArray(list)) return list.map(r => r?.jid).filter(Boolean);
+        }
+    } catch (err) {
+        // fall back to metadata pendingParticipants below
+    }
+    try {
+        const meta = await sock.groupMetadata(groupId).catch(() => null);
+        const pend = meta?.pendingParticipants || [];
+        if (Array.isArray(pend)) return pend.map(p => p?.id).filter(Boolean);
+    } catch {}
+    return [];
+}
+
+async function approveJid(sock, groupId, jid) {
+    if (typeof sock.groupRequestParticipantsUpdate === 'function') {
+        await sock.groupRequestParticipantsUpdate(groupId, [jid], 'approve');
+        return true;
+    }
+    if (typeof sock.groupAcceptJoinRequest === 'function') {
+        await sock.groupAcceptJoinRequest(groupId, jid);
+        return true;
+    }
+    return false;
 }
 
 async function tick(sock) {
@@ -28,11 +74,12 @@ async function tick(sock) {
         const now = Date.now();
 
         for (const g of approvalGroups) {
-            const pend = g?.pendingParticipants || [];
+            if (!g?.id) continue;
+
+            const pend = await getPendingJids(sock, g.id);
             if (!pend.length) continue;
 
-            for (const p of pend) {
-                const jid = p?.id;
+            for (const jid of pend) {
                 if (!jid) continue;
 
                 // country code filter, e.g. cc = "234" only approves +234 numbers
@@ -49,10 +96,8 @@ async function tick(sock) {
 
                 if (now - pending.get(key) >= delayMs) {
                     try {
-                        if (typeof sock.groupAcceptJoinRequest === 'function') {
-                            await sock.groupAcceptJoinRequest(g.id, jid);
-                            console.log(`[AUTO-APPROVE] approved ${jid} in ${g.id}`);
-                        }
+                        await approveJid(sock, g.id, jid);
+                        console.log(`[AUTO-APPROVE] approved ${jid} in ${g.id}`);
                     } catch (err) {
                         console.error('[AUTO-APPROVE] approve failed:', err.message);
                     }
@@ -71,6 +116,7 @@ async function tick(sock) {
 }
 
 function setupAutoApprove(sock) {
+    sockRef = sock;
     if (interval) return;
 
     refreshApprovalGroups(sock);
@@ -82,6 +128,15 @@ function setupAutoApprove(sock) {
         if (tickCount % 10 === 0) refreshApprovalGroups(sock);
         tick(sock);
     }, 30000);
+
+    // refresh immediately when group metadata changes (new group / approval
+    // toggled on) so we never wait up to 5 minutes
+    try {
+        sock.ev?.on?.('groups.upsert', () => refreshApprovalGroups(sock).catch(() => {}));
+        sock.ev?.on?.('group-participants.update', () => {
+            // a leave can remove a member from pending; just re-poll next tick
+        });
+    } catch {}
 }
 
-module.exports = { setupAutoApprove };
+module.exports = { setupAutoApprove, refreshApprovalGroups };

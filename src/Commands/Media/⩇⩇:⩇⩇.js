@@ -4,6 +4,7 @@ const path = require('path');
 const { exec } = require('child_process');
 // Pure-JS exif writer (node-webpmux) instead of wa-sticker-formatter -> sharp.
 const { addExif } = require('../../../library/exif');
+const { getStickerBranding } = require('../../Plugin/packname');
 
 module.exports = {
     name: 'tgsticker',
@@ -50,6 +51,8 @@ module.exports = {
         } catch (e) {}
 
         const packName = link.split('t.me/addstickers/')[1].split(/[?#]/)[0];
+        // PACK_NAME branding — ⚉ • <PACK_NAME>, author from STICKER_AUTHOR (@crysnovax—FIX09-08-26)
+        const { pack: brandPack, author: brandAuthor } = getStickerBranding();
 
         const botToken = '8989721606:AAH_WdnH6NVkCmEeOVrOQhBpiewoSp61HEc';
 
@@ -127,7 +130,7 @@ module.exports = {
                     }
 
                     try {
-                        finalBuffer = await addExif(finalBuffer, 'CRYSNOVA AI', '⩇⩇:⩇⩇', ['🔥']);
+                        finalBuffer = await addExif(finalBuffer, brandPack, brandAuthor, ['🔥']);
                     } catch (stickerErr) {}
 
                     // Write processed sticker to disk so it can be referenced by

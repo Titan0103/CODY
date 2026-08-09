@@ -96,7 +96,7 @@ module.exports = {
 
             } catch (err) {
                 console.error('QR read error:', err.message || err);
-                return reply(`${prefix}✘ Error reading QR:\n${errmessage}`);
+                return reply(`${prefix}✘ Error reading QR:\n${err?.message || err}`);
             }
         }
 

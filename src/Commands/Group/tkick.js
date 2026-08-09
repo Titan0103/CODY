@@ -9,6 +9,7 @@ module.exports = {
     category: 'Group',
     groupOnly: true,
     adminOnly: true,
+    botAdmin: true, // the bot needs admin rights to remove + re-add the user
     reactions: { start: '⏱️', success: '🔁' },
 
     execute: async (sock, m, { args, reply, prefix }) => {

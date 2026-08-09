@@ -1,5 +1,8 @@
 const { createCanvas } = require('canvas')
 const sharp = require('sharp')
+// PACK_NAME branding — ⚉ • <PACK_NAME> (@crysnovax—FIX09-08-26)
+const { addExif } = require('../../../library/exif')
+const { getStickerBranding } = require('../../Plugin/packname')
 
 module.exports = {
     name: 'ttp',
@@ -85,10 +88,18 @@ module.exports = {
             const pngBuffer = canvas.toBuffer('image/png')
 
             // convert to webp sticker
-            const stickerBuffer = await sharp(pngBuffer)
+            let stickerBuffer = await sharp(pngBuffer)
                 .resize(512, 512, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
                 .webp({ quality: 90, lossless: false, effort: 6 })
                 .toBuffer()
+
+            // apply ⚉ • <PACK_NAME> branding before sending
+            if (!isLarge) {
+                try {
+                    const { pack, author } = getStickerBranding()
+                    stickerBuffer = await addExif(stickerBuffer, pack, author, ['🔥'])
+                } catch {}
+            }
 
             if (isLarge) {
                 await sock.sendMessage(m.chat, {

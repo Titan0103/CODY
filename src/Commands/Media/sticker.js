@@ -103,7 +103,7 @@ module.exports = {
 
         } catch (e) {
             console.error(e);
-            reply(`${prefix}✘ Failed: ${emessage}`);
+            reply(`${prefix}✘ Failed: ${e?.message || e}`);
         }
     }
 };

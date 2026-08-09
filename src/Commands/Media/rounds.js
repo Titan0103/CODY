@@ -72,7 +72,7 @@ module.exports = {
 
         } catch (e) {
             console.error('[ROUND]', e);
-            reply(`${prefix}✘ Failed: ${emessage}`);
+            reply(`${prefix}✘ Failed: ${e?.message || e}`);
         }
     }
 };

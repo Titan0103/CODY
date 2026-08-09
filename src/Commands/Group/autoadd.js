@@ -15,6 +15,12 @@ module.exports = {
 
         if (sub === 'on' || sub === 'true' || sub === '1') {
             setVar('AUTO_APPROVE', true);
+            // instantly refresh the approval-mode group list so it starts working
+            // right away instead of waiting for the next 5-minute poll
+            try {
+                const { refreshApprovalGroups } = require('../../Plugin/autoApprove');
+                refreshApprovalGroups(sock);
+            } catch {}
             return reply('_✓ AUTO_APPROVE on — join requests get approved automatically_');
         }
         if (sub === 'off' || sub === 'false' || sub === '0') {
