@@ -52,7 +52,7 @@ module.exports = {
 
         } catch (e) {
             console.error('REVOKE ERROR:', e);
-            reply(`${prefix}𓆉 Error: ${emessage}`);
+            reply(`${prefix}𓆉 Error: ${e?.message || e}`);
         }
     }
 };

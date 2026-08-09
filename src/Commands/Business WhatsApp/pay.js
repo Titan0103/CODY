@@ -27,7 +27,7 @@ module.exports = [
                 await sock.sendMessage(m.chat, { react: { text: '🍃', key: m.key } });
             } catch (err) {
                 await sock.sendMessage(m.chat, { react: { text: '🥵', key: m.key } });
-                return reply(`${prefix}⊘ ${errmessage}`);
+                return reply(`${prefix}⊘ ${err?.message || err}`);
             }
         }
     },
@@ -74,7 +74,7 @@ module.exports = [
            //     return reply(`✓ *Invoice sent:* NGN ${amount}\n📝 ${note}`);
             } catch (err) {
                 await sock.sendMessage(m.chat, { react: { text: '🥵', key: m.key } });
-                return reply(`${prefix}⊘ ${errmessage}`);
+                return reply(`${prefix}⊘ ${err?.message || err}`);
             }
         }
     },
@@ -116,7 +116,7 @@ module.exports = [
               //  return reply(`✓ *Order sent:* ${orderText}`);
             } catch (err) {
                 await sock.sendMessage(m.chat, { react: { text: '🥵', key: m.key } });
-                return reply(`${prefix}⊘ ${errmessage}`);
+                return reply(`${prefix}⊘ ${err?.message || err}`);
             }
         }
     },
@@ -157,7 +157,7 @@ module.exports = [
                // return reply(`${prefix}✓ *Payment request sent to:* ${targetJidsplit('@')[0]}\n💵 *Currency:* NGN (Naira)`);
             } catch (err) {
                 await sock.sendMessage(m.chat, { react: { text: '🥵', key: m.key } });
-                return reply(`${prefix}⊘ ${errmessage}`);
+                return reply(`${prefix}⊘ ${err?.message || err}`);
             }
         }
     },
@@ -209,7 +209,7 @@ module.exports = [
                 //return reply(`${prefix}✓ *Product sent:* ${name}\n💰 NGN ${parseInt(price)toLocaleString()}`);
             } catch (err) {
                 await sock.sendMessage(m.chat, { react: { text: '🥵', key: m.key } });
-                return reply(`${prefix}⊘ ${errmessage}`);
+                return reply(`${prefix}⊘ ${err?.message || err}`);
             }
         }
     }

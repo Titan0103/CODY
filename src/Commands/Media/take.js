@@ -40,7 +40,7 @@ module.exports = {
 
         } catch (e) {
             console.error('TAKE ERROR:', e);
-            reply(`${prefix}✘ Failed: ${emessage}`);
+            reply(`${prefix}✘ Failed: ${e?.message || e}`);
         }
     }
 };

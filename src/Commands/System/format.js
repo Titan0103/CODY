@@ -148,7 +148,7 @@ module.exports = {
                     }
                 }
             } catch (e) {}
-            reply(`${prefix}✘ *FORMAT FAILED*\n${errmessage}\n\nBackup restored.`);
+            reply(`${prefix}✘ *FORMAT FAILED*\n${e?.message || e}\n\nBackup restored.`);
         }
     }
 };

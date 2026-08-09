@@ -2,6 +2,9 @@ const fetch = require("node-fetch");
 const fs = require("fs");
 const path = require("path");
 const { exec } = require("child_process");
+// PACK_NAME branding — ⚉ • <PACK_NAME> (@crysnovax—FIX09-08-26)
+const { addExif } = require('../../../library/exif');
+const { getStickerBranding } = require('../../Plugin/packname');
 
 module.exports = {
     name: "emojimix",
@@ -80,7 +83,13 @@ module.exports = {
                 return reply("✘ *Sticker generation failed*.");
             }
 
-            const stickerBuffer = fs.readFileSync(outputFile);
+            let stickerBuffer = fs.readFileSync(outputFile);
+
+            // apply ⚉ • <PACK_NAME> branding before sending
+            try {
+                const { pack, author } = getStickerBranding();
+                stickerBuffer = await addExif(stickerBuffer, pack, author, ['🔥']);
+            } catch {}
 
             await sock.sendMessage(
                 m.key.remoteJid,

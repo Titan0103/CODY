@@ -87,7 +87,7 @@ module.exports = {
 
         } catch (e) {
             console.error('[GINFO ERROR]', e);
-            reply(`${prefix}𓆉 Error: ${emessage}`);
+            reply(`${prefix}𓆉 Error: ${e?.message || e}`);
         }
     }
 };

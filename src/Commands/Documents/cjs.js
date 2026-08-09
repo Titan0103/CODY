@@ -71,7 +71,7 @@ module.exports = {
 
         } catch (err) {
             console.error('[COMJS ERROR]', err.message);
-            reply(`${prefix}✘ *Failed to create file*\n⎙ _${errmessage}_`);
+            reply(`${prefix}✘ *Failed to create file*\n⎙ _${err?.message || err}_`);
         }
     }
 };

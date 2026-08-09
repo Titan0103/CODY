@@ -95,7 +95,7 @@ module.exports = {
 
         } catch (e) {
             console.error('[TOROUND]', e);
-            reply(`${prefix}✘ Failed: ${emessage}`);
+            reply(`${prefix}✘ Failed: ${e?.message || e}`);
         }
     }
 };

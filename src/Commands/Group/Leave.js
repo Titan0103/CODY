@@ -23,7 +23,7 @@ module.exports = {
 𓉤 CRYSNOVA AI
 
 ✘ Failed to Leave
-${errmessage || 'Unknown Error'}
+${e?.message || err?.message || 'Unknown Error'}
 `);
         }
     }

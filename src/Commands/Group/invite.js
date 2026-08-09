@@ -1,4 +1,9 @@
-const { prepareWAMessageMedia, generateMessageIDV2 } = require('@crysnovax/baileys')
+// invite.js — sends the REAL WhatsApp group invite link (the one that expires).
+// • .invite            → posts the expiring link in the group with a rich preview
+// • .invite @user ...  → DMs the expiring invite link to each mentioned user
+// It NEVER auto-adds anyone — only the real, expiring invite is sent.
+// @crysnovax—FIX09-08-26
+const fetch = require('node-fetch');
 
 module.exports = {
     name: 'invite',
@@ -7,79 +12,82 @@ module.exports = {
     admin: true,
     group: true,
 
-    execute: async (sock, m, { reply }) => {
+    execute: async (sock, m, { args, reply, prefix }) => {
         try {
-            if (!m.isGroup) return reply('`⟁⃝GROUP ONLY!℘`')
+            if (!m.isGroup) return reply('`⟁⃝GROUP ONLY!℘`');
 
-            const meta = await sock.groupMetadata(m.chat)
-            const groupName = meta.subject
+            const meta = await sock.groupMetadata(m.chat);
+            const groupName = meta.subject;
 
-            // ── Get invite code ───────────────────────
-            let inviteCode
+            // ── Real invite code — regenerates on .resetlink, expires by design ──
+            let inviteCode;
             try {
-                inviteCode = await sock.groupInviteCode(m.chat)
+                inviteCode = await sock.groupInviteCode(m.chat);
             } catch (err) {
-                return reply('`—͟͟͞͞𖣘 I need admin rights to generate the group link`')
+                return reply('`—͟͟͞͞𖣘 I need admin rights to generate the group link`');
+            }
+            const inviteLink = `https://chat.whatsapp.com/${inviteCode}?mode=gi_t`;
+
+            // ── Optional DM targets: @mentions, quoted sender, or numbers ──
+            const targets = [];
+            if (m.mentionedJid?.length) {
+                for (const jid of m.mentionedJid) {
+                    if (!targets.includes(jid)) targets.push(jid);
+                }
+            }
+            if (m.quoted?.sender && !targets.includes(m.quoted.sender)) {
+                targets.push(m.quoted.sender);
+            }
+            for (const a of args) {
+                const n = a.replace(/[^0-9]/g, '');
+                if (!n || n.length < 7) continue;
+                const jid = n + '@s.whatsapp.net';
+                if (!targets.includes(jid)) targets.push(jid);
             }
 
-            const inviteLink = `https://chat.whatsapp.com/${inviteCode}?mode=gi_t`
-
-            // ── Get group photo URL ───────────────────
-            let photoUrl = null
+            // ── Group photo for the link preview ──
+            let thumb = null;
             try {
-                photoUrl = await sock.profilePictureUrl(m.chat, 'image')
+                const pp = await sock.profilePictureUrl(m.chat, 'image');
+                thumb = Buffer.from(await (await fetch(pp)).buffer());
             } catch {}
 
-            // ── Upload via mediaTypeOverride:'thumbnail-link' ──
-            // Pass URL directly — Baileys' own HTTP layer fetches it
-            // with proper headers, avoiding quality degradation from
-            // manual fetch(). jpegThumbnail comes from the upload result
-            // itself — no manual extractImageThumb needed.
-            let hq = null
-            let smallThumb = null
-            if (photoUrl) {
-                try {
-                    const prepared = await prepareWAMessageMedia(
-                        { image: { url: photoUrl } },
-                        { upload: sock.waUploadToServer, mediaTypeOverride: 'thumbnail-link' }
-                    )
-                    hq = prepared.imageMessage
-                    smallThumb = hq?.jpegThumbnail ? Buffer.from(hq.jpegThumbnail) : null
-                } catch (err) {
-                    console.error('HQ THUMB UPLOAD ERROR:', err)
+            if (targets.length) {
+                // ONLY the real expiring invite — no direct add, ever.
+                const sent = [];
+                for (const jid of targets) {
+                    try {
+                        await sock.sendMessage(jid, {
+                            text:
+                                `ᯤ *${groupName}*\n\n` +
+                                `You've been invited to this WhatsApp group.\n` +
+                                `_This link is real and expires — use it before it does._\n\n` +
+                                inviteLink,
+                            linkPreview: true
+                        });
+                        sent.push(jid);
+                    } catch (e) {
+                        console.error('[INVITE DM ERROR]', e?.message || e);
+                    }
+                    await new Promise(r => setTimeout(r, 400));
                 }
+
+                return reply(
+                    sent.length
+                        ? `_*📩 Real invite link sent to:*_\n${sent.map(j => `✦ @${j.split('@')[0]}`).join('\n')}\n\n_Expires — nobody was added directly._`
+                        : '_✘ Could not send the invite to anyone_'
+                );
             }
 
-            // ── Build proto and relay directly ────────
-            const message = {
-                extendedTextMessage: {
-                    text: inviteLink,
-                    matchedText: inviteLink,
-                    canonicalUrl: inviteLink,
-                    title: groupName,
-                    description: `${meta.participants.length} members · WhatsApp Group Invite`,
-                    previewType: 5, // IMAGE
-                    jpegThumbnail: smallThumb || undefined,
-                    ...(hq
-                        ? {
-                            thumbnailDirectPath: hq.directPath,
-                            mediaKey: hq.mediaKey,
-                            mediaKeyTimestamp: hq.mediaKeyTimestamp,
-                            thumbnailWidth: hq.width,
-                            thumbnailHeight: hq.height,
-                            thumbnailSha256: hq.fileSha256,
-                            thumbnailEncSha256: hq.fileEncSha256
-                        }
-                        : {})
-                }
-            }
-
-            const messageId = generateMessageIDV2(sock.user.id)
-            await sock.relayMessage(m.chat, message, { messageId })
+            // ── No targets → drop the real link right here in the group ──
+            await sock.sendMessage(m.chat, {
+                text: inviteLink,
+                linkPreview: true
+            }, { quoted: m });
 
         } catch (e) {
-            console.error('GLINK ERROR:', e)
-            reply(`${prefix}𓆉 Error: ${emessage}`)
+            console.error('[GLINK ERROR]', e);
+            reply(`${prefix}𓆉 Error: ${e?.message || e}`);
         }
     }
-}
+};

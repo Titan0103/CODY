@@ -77,7 +77,7 @@ module.exports = {
 
         } catch (err) {
             console.error('[COMCPP ERROR]', err.message);
-            reply(`${prefix}✘ *Failed to create C++ file*\n⎙ _${errmessage}_`);
+            reply(`${prefix}✘ *Failed to create C++ file*\n⎙ _${err?.message || err}_`);
         }
     }
 };

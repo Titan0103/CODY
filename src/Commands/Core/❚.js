@@ -5,7 +5,7 @@ const a0_0x5cf854=a0_0x3585;(function(_0x39fa36,_0x5ca3f3){const _0x5d2f57=a0_0x
 // tries grok-4 fresh, regardless of whether a previous call failed.
 async function tryPrimaryWithRotation(_0x4c163a){
     try{
-        const grokRes=await tryGet(PREXZY+'/ai/grok-4?prompt='+encodeURIComponent(_0x4c163a));
+        const grokRes=await tryGet(PREXZY+'/ai/ch?q='+encodeURIComponent(_0x4c163a));
         const grokText=grokRes?.response;
         if(grokText&&typeof grokText==='string'&&grokText.length>5){
             return grokText.trim();

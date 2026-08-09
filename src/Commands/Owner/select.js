@@ -69,7 +69,7 @@ module.exports = {
             if (err.message?.includes('rows')) {
                 reply(`⊘ WhatsApp may have a limit on number of rows. Try with fewer options.`);
             } else {
-                reply(`${prefix}𓃵 Failed: ${errmessage}`);
+                reply(`${prefix}𓃵 Failed: ${err?.message || err}`);
             }
         }
     }

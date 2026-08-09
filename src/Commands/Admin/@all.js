@@ -15,7 +15,7 @@ module.exports = {
                 mentionAll: true
             }, { quoted: m });
         } catch (err) {
-            reply(`${prefix}⊘ ${errmessage}`);
+            reply(`${prefix}⊘ ${err?.message || err}`);
         }
     }
 };

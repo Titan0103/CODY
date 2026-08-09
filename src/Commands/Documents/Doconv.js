@@ -71,7 +71,7 @@ module.exports = {
 
         } catch (e) {
             console.error('[CONVERT]', e);
-            reply(`${prefix}✘ Conversion failed: ${emessage}`);
+            reply(`${prefix}✘ Conversion failed: ${e?.message || e}`);
         }
     }
 };

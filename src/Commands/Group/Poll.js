@@ -65,7 +65,7 @@ module.exports = {
             }, { quoted: m })
         } catch (err) {
             console.error('[POLL ERROR]', err.message)
-            reply(`${prefix}_✘ Failed to create poll: ${errmessage}_`)
+            reply(`${prefix}_✘ Failed to create poll: ${err?.message || err}_`)
         }
     }
 }

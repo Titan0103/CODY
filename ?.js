@@ -49,6 +49,9 @@ module.exports = function setupMessageHandler(sock, customStore, handleMessage, 
         if (global.crysStats) require('./src/Plugin/uptime').restoreOnBoot(global.crysStats);
     } catch (e) {}
 
+    // live console streaming → web panel (Render-style console) (@crysnovax—FIX09-08-26)
+    try { require('./src/Plugin/consoleBridge').setupConsoleBridge(io); } catch (e) { console.error('[CONSOLE BRIDGE] init error:', e.message); }
+
     // restore pending temp kicks + start join-request auto-approval (@crysnovax—FIX06-08-26)
     try { require('./src/Plugin/tkick').setupTkicks(sock); } catch (e) { console.error('[TKICK] restore error:', e.message); }
     try { require('./src/Plugin/autoApprove').setupAutoApprove(sock); } catch (e) { console.error('[AUTO-APPROVE] init error:', e.message); }
