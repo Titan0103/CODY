@@ -1,6 +1,19 @@
 // tkick.js — temporary kick command: user is removed and auto re-added after
 // the duration. Works in any group where the bot is admin. @crysnovax—FIX06-08-26
 const { tkick, undo, isTkicked, parseTime } = require('../../Plugin/tkick');
+const { resolvePhoneJidWithMetadata } = require('../../Plugin/identityUtils');
+
+// In this Baileys fork @mentions can come back as @lid jids — resolve them
+// to the real phone jid so the kick AND the auto re-add actually work
+// (LID adds silently fail / verify against phone participants).
+// (@crysnovax—FIX12-08-26)
+async function resolveTarget(sock, m, jid) {
+    if (!jid) return null;
+    try {
+        const resolved = await resolvePhoneJidWithMetadata(sock, m.chat, [jid]);
+        return resolved || jid;
+    } catch { return jid; }
+}
 
 module.exports = {
     name: 'tkick',
@@ -19,9 +32,10 @@ module.exports = {
             const target = m.mentionedJid?.[0] || m.quoted?.sender ||
                            (args[1] && /^\d+$/.test(args[1]) ? args[1] + '@s.whatsapp.net' : null);
             if (!target) return reply(`_⚉ Usage: ${prefix}tkick undo @user_`);
-            if (!isTkicked(m.chat, target)) return reply('_✘ That user is not on a temp kick_');
-            await undo(sock, m.chat, target);
-            return reply(`_✓ @${target.split('@')[0]} added back — temp kick cancelled_`);
+            const resolved = await resolveTarget(sock, m, target);
+            if (!isTkicked(m.chat, resolved)) return reply('_✘ That user is not on a temp kick_');
+            await undo(sock, m.chat, resolved);
+            return reply(`_✓ @${resolved.split('@')[0]} added back — temp kick cancelled_`);
         }
 
         // target detection
@@ -33,6 +47,9 @@ module.exports = {
         if (!targetJid && /^\d+$/.test(args[0])) targetJid = args[0] + '@s.whatsapp.net';
 
         if (!targetJid) return reply(`✘ Specify user\nExample:\n${prefix}tkick @user 5m`);
+
+        // LID → phone so the kick + scheduled re-add both use a real number
+        targetJid = await resolveTarget(sock, m, targetJid);
 
         // duration
         const timeArg = args.find(a => /^\d+(s|m|h|d)$/i.test(a));

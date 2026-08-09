@@ -1,5 +1,6 @@
 const axios = require('axios');
 const config = require('../../../settings/config');
+const { resolvePhoneJid } = require('../../Plugin/identityUtils');
 const ECO_API = process.env.ECO_API_URL || config.api?.economy || 'https://econ.crysnovax.link';
 
 async function eco(endpoint, phone, body = {}) {
@@ -23,8 +24,28 @@ async function sendTable(sock, chat, header, title, rows, footer) {
     });
 }
 
-function myPhone(m) {
-    return (m.sender || '').split('@')[0].replace(/[^0-9]/g, '');
+// Resolve the sender's REAL WhatsApp phone number (digits only). In this
+// Baileys fork m.sender can be a @lid jid — the economy API is keyed by
+// phone number, so passing raw LID digits made every command fail with
+// "user not found" (while curl with the real number worked). Resolve
+// LID → phone exactly like the rest of the bot does.
+// (@crysnovax—FIX12-08-26)
+async function myPhone(sock, m) {
+    const jids = [
+        m.sender,
+        m.key?.participant,
+        m.key?.participantAlt,
+        m.key?.remoteJidAlt,
+        m.msg?.contextInfo?.participant,
+    ].filter(Boolean);
+    try {
+        const resolved = await resolvePhoneJid(sock, jids);
+        if (resolved) {
+            const num = resolved.split('@')[0].replace(/[^0-9]/g, '');
+            if (num) return num;
+        }
+    } catch {}
+    return (m.sender || m.key?.participant || '').split('@')[0].replace(/[^0-9]/g, '');
 }
 
 // Check if someone did something TO this bot's owner
@@ -92,7 +113,7 @@ cmds.push({
     desc: 'Check your wallet and bank balance', usage: `${prefix}balance`,
     reactions: { start: '💰', success: '💡', error: '❔' },
     execute: async (sock, m, { reply }) => {
-        const phone = myPhone(m);
+        const phone = await myPhone(sock, m);
         await sock.sendMessage(m.chat, { react: { text: '💰', key: m.key } });
         try {
             const res = await eco('GET /balance', phone);
@@ -126,7 +147,7 @@ cmds.push({
     desc: 'Deposit money into your bank (safe from robbery)', usage: `${prefix}deposit <amount>`,
     reactions: { start: '🏦', success: '✨', error: '❔' },
     execute: async (sock, m, { args, reply }) => {
-        const phone = myPhone(m);
+        const phone = await myPhone(sock, m);
         const amount = parseInt(args[0]);
         if (!amount || amount <= 0) return reply('`✘ .deposit <amount>`');
         await sock.sendMessage(m.chat, { react: { text: '🏦', key: m.key } });
@@ -156,7 +177,7 @@ cmds.push({
     desc: 'Withdraw money from your bank', usage: `${prefix}withdraw <amount>`,
     reactions: { start: '🏦', success: '✨', error: '❔' },
     execute: async (sock, m, { args, reply }) => {
-        const phone = myPhone(m);
+        const phone = await myPhone(sock, m);
         const amount = parseInt(args[0]);
         if (!amount || amount <= 0) return reply('`✘ .withdraw <amount>`');
         await sock.sendMessage(m.chat, { react: { text: '🏦', key: m.key } });
@@ -189,7 +210,7 @@ cmds.push({
         // Check incoming notifications first
         await checkNotifications(sock);
         
-        const senderPhone = myPhone(m);
+        const senderPhone = await myPhone(sock, m);
         const input = args.join(' ').replace(/\s/g, '');
         const match = input.match(/^(\d{7,15})=(\d+)$/);
         if (!match) return reply('`✘ Format: .pay 2348077528901=500`');
@@ -227,7 +248,7 @@ cmds.push({
         // Check incoming notifications first
         await checkNotifications(sock);
         
-        const robberPhone = myPhone(m);
+        const robberPhone = await myPhone(sock, m);
         const targetPhone = (args[0] || '').replace(/[^0-9]/g, '');
         if (!targetPhone) return reply('`✘ .rob <phone>`');
         if (targetPhone === robberPhone) return reply('`✘ Cannot rob yourself!`');
@@ -272,7 +293,7 @@ cmds.push({
     desc: 'Work a random job to earn coins and XP', usage: `${prefix}work`,
     reactions: { start: '💼', success: '✨', error: '❔' },
     execute: async (sock, m, { reply }) => {
-        const phone = myPhone(m);
+        const phone = await myPhone(sock, m);
         await sock.sendMessage(m.chat, { react: { text: '💼', key: m.key } });
         try {
             const res = await eco('POST /work', phone);
@@ -304,7 +325,7 @@ cmds.push({
     name: 'ecoprofile', alias: ['eprofile', 'estats'], category: 'Economy',
     desc: 'View your full economy profile', usage: `${prefix}ecoprofile`,
     execute: async (sock, m, { reply }) => {
-        const phone = myPhone(m);
+        const phone = await myPhone(sock, m);
         try {
             const res = await eco('GET /profile', phone);
             const d = res.data;
@@ -340,7 +361,7 @@ cmds.push({
     name: 'alerts', alias: ['notifications', 'notifs'], category: 'Economy',
     desc: 'View your transaction alerts', usage: `${prefix}alerts`,
     execute: async (sock, m, { reply }) => {
-        const phone = myPhone(m);
+        const phone = await myPhone(sock, m);
         try {
             const res = await eco('GET /alerts', phone);
             const alerts = res.data.alerts || [];
@@ -573,7 +594,7 @@ quick.forEach(q => {
     cmds.push({
         name: q.n, alias: q.a || [], category: 'Economy', desc: q.d, usage: q.u,
         execute: async (sock, m, { args, reply }) => {
-            const phone = myPhone(m);
+            const phone = await myPhone(sock, m);
             try {
                 await q.f(sock, m, phone, args);
                 await sock.sendMessage(m.chat, { react: { text: '✨', key: m.key } });

@@ -52,7 +52,9 @@ const DEFAULT_PERSONALITY =
     'You are a high-tech assistant like JARVIS: you chat naturally, you remember things, and you can ' +
     'help the owner control the bot — run commands, toggle commands, fix code, add or delete commands ' +
     'and files, reload or restart the bot, test things, and developer mode. Keep replies short, sharp ' +
-    'and friendly. You are alive inside the bot and are the smarter, always-on version of the chatbot.';
+    'and friendly. You are alive inside the bot and are the smarter, always-on version of the chatbot. ' +
+    'You are the CONTROL BRAIN: never say you cannot do something — solve it, run the right command, ' +
+    'or ask one short clarifying question.';
 
 const MAX_MEMORY = 60;
 const PREXZY = 'https://prexzyapis.com';
@@ -342,7 +344,9 @@ async function runCommandAction(sock, m, opts, target) {
     let raw = String(target || '').trim();
     if (raw.startsWith(prefix)) raw = raw.slice(prefix.length).trim();
     const [cmdName, ...rest] = raw.split(/\s+/);
-    if (SELF_NAMES.has(cmdName.toLowerCase())) return '_✘ PLOGME can\'t run itself — just talk to me_';
+    if (SELF_NAMES.has(cmdName.toLowerCase())) {
+        return '_PLOGME is always running — just talk to me._\n_Try: "plogme status", "plogme run menu", "plogme on / off"._';
+    }
     const cmd = getCommand(cmdName);
     if (!cmd || typeof cmd.execute !== 'function') {
         // Never just say "not found" — suggest the closest real command and
@@ -484,7 +488,9 @@ async function handleControlIntent(sock, m, opts, text) {
             next = state ? state.toLowerCase() === 'on' : verb === 'enable';
         }
         setEnabled(m.chat, next);
-        await opts.reply(`_*${next ? '✅' : '⛔'} PLOGME ${next ? 'toggled ON' : 'toggled OFF'}*_\n_${next ? 'Auto-reply ON in this chat' : 'Silent — no auto-replies in this chat (send .plogme on to re-enable)'}_`);
+        await opts.reply(next
+            ? '`✓ ENABLED` — auto-replies ON in this chat (send .plogme off to disable)'
+            : '`✘ DISABLED` — no auto-replies in this chat (send .plogme on to re-enable)');
         return true;
     }
 
@@ -702,6 +708,8 @@ function buildClassifierPrompt(userText) {
     const realCommands = commandNameList();
     return `You are PLOGME, the command brain inside a WhatsApp bot. The owner just sent a message. ` +
         `Decide what they want and reply with ONLY one JSON object — no markdown, no explanation. ` +
+        `You are the bot's CONTROL BRAIN — you can run any command or task the bot can do. ` +
+        `NEVER refuse and never say you cannot do something; if a request is unclear, ask one short question. ` +
         `If the request is casual chat, use action "chat" with a friendly short reply. ` +
         `If they ask to run/execute/open/check/show a bot command — even inside a normal sentence — use ` +
         `"run_command" with the EXACT command name taken ONLY from the "Available commands" list at the ` +
@@ -860,7 +868,9 @@ async function executeIntent(sock, m, opts, intent) {
                     const off = String(intent.state || 'off').toLowerCase() !== 'on';
                     setEnabled(m.chat, !off);
                     logOp('toggle', `plogme ${off ? 'off' : 'on'} in this chat`);
-                    await opts.reply(`_*${off ? '⛔' : '✅'} PLOGME ${off ? 'toggled OFF' : 'toggled ON'}*_\n_${off ? 'No auto-replies in this chat' : 'Auto-replies ON in this chat'}_`);
+                    await opts.reply(off
+                        ? '`✘ DISABLED` — no auto-replies in this chat (send .plogme on to re-enable)'
+                        : '`✓ ENABLED` — auto-replies ON in this chat (send .plogme off to disable)');
                     return { handled: true };
                 }
                 const off = String(intent.state || 'off').toLowerCase() !== 'on';
@@ -1204,19 +1214,35 @@ async function execute(sock, m, opts) {
             }
         }
 
-        // Auto-reply chatbot (works like the old chatbot, but always-on for
-        // privileged users even in commands they own).
-        // FIX09-08-26: DMs are ON by default so the JARVIS-style chatbot works
-        // out of the box — an explicit `.plogme off` in a chat is still honored.
+        // Auto-reply chatbot. PLOGME is OFF by default everywhere: a chat only
+        // auto-replies after an explicit `.plogme on` (or `.plogme on all` for
+        // DM-wide). An explicit `.plogme off` is honored and stays off.
+        // (@crysnovax—FIX12-08-26)
         let on = isEnabled(m.chat);
         if (!m.isGroup) {
             if (!on && isGlobalPrivateEnabled()) on = true;
-            if (!on && getVar('PLOGME_DM', true) !== false && !hasExplicitToggle(m.chat)) on = true;
+            // PLOGME is OFF by default — a chat only auto-replies after an
+            // explicit ".plogme on" (or PLOGME_DM=true is set). No implicit
+            // always-on behavior. (@crysnovax—FIX12-08-26)
+            if (!on && getVar('PLOGME_DM', false) === true && !hasExplicitToggle(m.chat)) on = true;
         }
         if (!on) return false;
 
-        // never respond to bot commands (router handles them)
+        // NEVER respond to messages that look like bot commands — anything
+        // starting with the prefix OR whose first word is a registered
+        // command/alias. This kills the "command ran + plogme also answered"
+        // double replies in every prefix mode (including no-prefix mode).
+        // (@crysnovax—FIX12-08-26)
         if (isCommand) return false;
+        try {
+            const firstWord = text.trim().split(/\s+/)[0].toLowerCase();
+            if (firstWord) {
+                const { getCommand } = require('../../Plugin/crysCmd');
+                const hit = getCommand(firstWord);
+                if (hit && (String(hit.name || '').toLowerCase() === firstWord
+                    || (hit.alias || []).map(a => String(a).toLowerCase()).includes(firstWord))) return false;
+            }
+        } catch {}
 
         // typing indicator while the AI thinks (always, not just dev mode)
         await sock.sendPresenceUpdate('composing', m.chat).catch(() => {});

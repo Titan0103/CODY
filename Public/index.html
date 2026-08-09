@@ -172,8 +172,10 @@
         .console-screen::-webkit-scrollbar { width: 6px; }
         .console-screen::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
 
-        .cl { display: flex; align-items: baseline; gap: 0.55rem; padding: 0.05rem 0; white-space: pre-wrap; word-break: break-word; }
-        .cl .t { color: var(--text-muted); flex-shrink: 0; font-size: 0.7rem; }
+        .cl { display: flex; align-items: baseline; gap: 0.55rem; padding: 0.1rem 0.45rem; margin: 0 -0.45rem; border-radius: 5px; white-space: pre-wrap; word-break: break-word; transition: background 0.15s ease; }
+        .cl:hover { background: rgba(255, 255, 255, 0.035); }
+        .cl .t { color: #5d6f8a; flex-shrink: 0; font-size: 0.7rem; font-variant-numeric: tabular-nums; letter-spacing: 0.04em; min-width: 68px; user-select: none; }
+        .console-clock { color: var(--accent-cyan); font-size: 0.66rem; font-weight: 600; letter-spacing: 0.06em; opacity: 0.85; margin-left: 0.5rem; text-shadow: 0 0 10px rgba(0, 255, 240, 0.3); }
         .cl .badge {
             flex-shrink: 0; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.05em;
             padding: 0.06rem 0.4rem; border-radius: 4px; min-width: 46px; text-align: center;
@@ -262,7 +264,7 @@
             <div class="console">
                 <div class="console-titlebar">
                     <div class="traffic"><span class="r"></span><span class="y"></span><span class="g"></span></div>
-                    <div class="console-title">CODY AI · Live Console</div>
+                    <div class="console-title">CODY AI · Live Console<span class="console-clock" id="consoleClock"></span></div>
                     <div class="console-actions">
                         <button class="console-btn" id="btnClear">clear</button>
                         <button class="console-btn" id="btnCopy">copy</button>
@@ -315,7 +317,10 @@
         }
         function ts(ms) {
             const d = new Date(ms || Date.now());
-            return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+            const now = new Date();
+            const sameDay = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+            const hms = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+            return sameDay ? hms : `${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${hms}`;
         }
         const stripAnsi = (s) => String(s || '').replace(/\x1b\[[0-9;]*m/g, '').trim();
 
@@ -465,6 +470,12 @@
         });
 
         /* ── console actions ── */
+        // live clock in the console titlebar (Render-style)
+        setInterval(() => {
+            const el = document.getElementById('consoleClock');
+            if (el) el.textContent = '— ' + ts(Date.now());
+        }, 1000);
+
         document.getElementById('btnClear').addEventListener('click', () => {
             consoleEl.innerHTML = '';
             addLine('Console cleared', 'info');

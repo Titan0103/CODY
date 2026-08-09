@@ -166,7 +166,7 @@ module.exports = {
     desc: 'Show CODY AI menu with all commands',
     category: 'Bot',
     reactions: { start: '💬', success: '✨' },
-    execute: async (sock, m, { prefix, config }) => {
+    execute: async (sock, m, { args, reply, prefix, config }) => {
         
         // Get user info directly from message
         const userName = await getUserName(sock, m);
@@ -189,7 +189,22 @@ module.exports = {
         const chatType = getChatType(m);
         
         // Get categories and commands
-        const categories = getByCategory() || {};
+        let categories = getByCategory() || {};
+
+        // .menu <category> — only show that category (@crysnovax—FIX12-08-26)
+        const catFilter = (args && args[0]) ? String(args[0]).trim().toLowerCase() : '';
+        if (catFilter) {
+            const matched = {};
+            for (const [cat, cmds] of Object.entries(categories)) {
+                const key = String(cat).toLowerCase();
+                if (key === catFilter || key.includes(catFilter) || catFilter.includes(key)) matched[cat] = cmds;
+            }
+            if (!Object.keys(matched).length) {
+                const available = Object.keys(categories).join('`, `');
+                return reply(`_✘ Category *${args[0]}* not found._\n\n*Available categories:*\n\`${available}\`\n\n_Usage: ${prefix}menu <category>_`);
+            }
+            categories = matched;
+        }
         
         // Count unique commands (without aliases)
         let totalCmds = 0;

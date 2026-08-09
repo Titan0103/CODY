@@ -544,12 +544,13 @@ try {
                 console.error('[PLOGME HOOK ERROR]', err?.message || err);
             }
 
-            // ── Legacy chatbot brain (❚.js) — PLOGME replaced the old
-            //    chatbot, so an explicit ".plogme off" in this chat must
-            //    silence it too, otherwise the old brain keeps auto-replying
-            //    after the toggle. (@crysnovax—FIX10-08-26)
+            // ── Legacy chatbot brain (❚.js) — fully subordinated to PLOGME:
+            //    it ONLY runs when PLOGME is explicitly enabled in this chat,
+            //    so it can never auto-reply while PLOGME is off (or by
+            //    default), never double-reply, and never clash with the
+            //    control brain. (@crysnovax—FIX12-08-26)
             try {
-                if (plogmeCmd.isEnabled(m.chat) || !plogmeCmd.hasExplicitToggle(m.chat)) {
+                if (plogmeCmd.isEnabled(m.chat)) {
                     const { handleIncomingMessage } = require('./src/Commands/Core/\u275A.js');
                     await handleIncomingMessage(sock, m, mek);
                 }
@@ -557,11 +558,18 @@ try {
                 console.error('[LEGACY CHATBOT ERROR]', err?.message || err);
             }
 
+            // ── CRYSNOVA legacy brain — subordinated to PLOGME like ❚.js:
+            //    it ONLY auto-replies when PLOGME is explicitly enabled in
+            //    this chat, so it can never answer while PLOGME is off (or
+            //    by default), never double-reply, and is always controllable
+            //    via .plogme on/off. (@crysnovax—FIX12-08-26)
             try {
-                const crysnova = require('./src/Commands/AI/crysnova.js');
-                const msgText = (m.text || '').toLowerCase().trim();
-                if (!(msgText.startsWith('.crysnova') || msgText.startsWith('.ai') || msgText.startsWith('.crys'))) {
-                    if (crysnova?.onMessage) await crysnova.onMessage(sock, m);
+                if (plogmeCmd.isEnabled(m.chat)) {
+                    const crysnova = require('./src/Commands/AI/crysnova.js');
+                    const msgText = (m.text || '').toLowerCase().trim();
+                    if (!(msgText.startsWith('.crysnova') || msgText.startsWith('.ai') || msgText.startsWith('.crys'))) {
+                        if (crysnova?.onMessage) await crysnova.onMessage(sock, m);
+                    }
                 }
             } catch {}
 
