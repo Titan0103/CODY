@@ -517,10 +517,10 @@ app.get('/api/git', (req, res) => {
 
 // ============ START SERVER ============
 app.listen(PORT, () => {
-    console.log(`🔌 Panel Connector API running on port ${PORT}`);
-    console.log(`📂 Root: ${ROOT_PATH}`);
-    console.log(`🔓 No authentication — open access`);
-    console.log(`📡 14 endpoints ready for CODY`);
+    console.log(`ᯤ Panel Connector API running on port ${PORT}`);
+    console.log(`ᯤ Root: ${ROOT_PATH}`);
+    console.log(`ᯤ No authentication — open access`);
+    console.log(`ᯤ 14 endpoints ready for CODY`);
 });
 
 module.exports = app;
