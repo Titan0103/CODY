@@ -134,9 +134,28 @@ const logOp = (type, summary) => {
 };
 
 /* ───────────────────────── command toggling ───────────────────────── */
-const isCommandToggled = (name) => { const d = loadJson(FILES.toggled); const cmd = String(name || '').toLowerCase(); return d[cmd] === true || d[cmd] === 'off'; };
-const toggleCommand = (name, off) => { const d = loadJson(FILES.toggled); const cmd = String(name || '').toLowerCase(); if (!cmd) return false; d[cmd] = !!off ? 'off' : 'on'; saveJson(FILES.toggled, d); return true; };
-const getToggledList = () => Object.entries(loadJson(FILES.toggled)).filter(([, v]) => v === 'off').map(([k]) => k);
+// The command-toggle list is for OTHER commands only. PLOGME itself must
+// never be written into it — doing so made the ?.js pre-router block eat
+// every ".plogme ..." message with "⛔ .plogme is toggled OFF by plogme" and
+// locked the toggle (the command could never reach the handler to turn it
+// back on). These helpers now hard-ignore the self-names, which also
+// auto-heals any chat that already has a stale "plogme: off" entry.
+// (@crysnovax—FIX10-08-26)
+const isCommandToggled = (name) => {
+    const cmd = String(name || '').toLowerCase();
+    if (!cmd || SELF_NAMES.has(cmd)) return false;
+    const d = loadJson(FILES.toggled);
+    return d[cmd] === true || d[cmd] === 'off';
+};
+const toggleCommand = (name, off) => {
+    const cmd = String(name || '').toLowerCase();
+    if (!cmd || SELF_NAMES.has(cmd)) return false; // plogme toggles via setEnabled, never here
+    const d = loadJson(FILES.toggled);
+    d[cmd] = !!off ? 'off' : 'on';
+    saveJson(FILES.toggled, d);
+    return true;
+};
+const getToggledList = () => Object.entries(loadJson(FILES.toggled)).filter(([k, v]) => v === 'off' && !SELF_NAMES.has(k)).map(([k]) => k);
 
 /* ───────────────────────── AI (same working PREXZY models as the chatbot) ───────────────────────── */
 // PLOGME uses the SAME PREXZY models as the .chatbot brain. We verified the
@@ -358,6 +377,29 @@ async function runTest(sock, m, opts, subject) {
 async function handleControlIntent(sock, m, opts, text) {
     const lower = text.trim().toLowerCase();
 
+    // ── PLOGME's own chatbot-style on/off toggle ──
+    // ".plogme on/off", "plogme on/off", "toggle plogme on/off",
+    // "enable/disable plogme". OFF = no auto-replies in this chat, exactly
+    // like the old .chatbot toggle — it uses setEnabled, never the
+    // command-toggle list. (@crysnovax—FIX10-08-26)
+    const selfOn = text.match(/^(?:plogme|plg|plog)\s+(on|off)$/i);
+    // note: the verb group MUST be capturing — selfVerb[1] is the verb and
+    // selfVerb[2] the optional state, so "enable plogme" / "toggle plogme on"
+    // compute the right direction (@crysnovax—FIX10-08-26)
+    const selfVerb = text.match(/^(toggle|disable|enable)\s+(?:plogme|plg|plog)(?:\s+(on|off))?$/i);
+    if (selfOn || selfVerb) {
+        let next;
+        if (selfOn) next = selfOn[1].toLowerCase() === 'on';
+        else {
+            const verb = selfVerb[1].toLowerCase();
+            const state = selfVerb[2];
+            next = state ? state.toLowerCase() === 'on' : verb === 'enable';
+        }
+        setEnabled(m.chat, next);
+        await opts.reply(`_*${next ? '✅' : '⛔'} PLOGME ${next ? 'toggled ON' : 'toggled OFF'}*_\n_${next ? 'Auto-reply ON in this chat' : 'Silent — no auto-replies in this chat (send .plogme on to re-enable)'}_`);
+        return true;
+    }
+
     // reload commands
     if (/^(plogme\s+)?(reload|refresh)(\s+commands)?$/i.test(lower)) {
         const { loadCommands } = require('../../Plugin/crysLoadCmd');
@@ -373,12 +415,17 @@ async function handleControlIntent(sock, m, opts, text) {
         return true;
     }
 
-    // toggle a command off / on
+    // toggle a command off / on (never PLOGME itself — see the self-toggle above)
     const toggleMatch = text.match(/^(?:plogme\s+)?(?:toggle|disable|enable)\s+([\w.\-]+)\s*(on|off)?$/i);
     if (toggleMatch) {
         const { getCommand } = require('../../Plugin/crysCmd');
-        const cmd = getCommand(toggleMatch[1].toLowerCase());
-        const name = cmd?.name || toggleMatch[1].toLowerCase();
+        const toggledName = toggleMatch[1].toLowerCase();
+        if (SELF_NAMES.has(toggledName)) {
+            await opts.reply('_PLOGME itself is toggled with `.plogme on` / `.plogme off`_');
+            return true;
+        }
+        const cmd = getCommand(toggledName);
+        const name = cmd?.name || toggledName;
         const off = (toggleMatch[2] || 'off').toLowerCase() !== 'on';
         toggleCommand(name, off);
         await opts.reply(`_*${off ? '⛔' : '✅'} .${name} ${off ? 'toggled OFF' : 'toggled ON'}*_`);
@@ -693,7 +740,15 @@ async function executeIntent(sock, m, opts, intent) {
                 const { getCommand } = require('../../Plugin/crysCmd');
                 const cmd = getCommand(String(intent.command || '').toLowerCase());
                 const name = cmd?.name || String(intent.command || '').toLowerCase();
-                if (SELF_NAMES.has(name)) return { handled: false }; // never toggle plogme itself via the intent brain
+                if (SELF_NAMES.has(name)) {
+                    // toggling PLOGME itself = the chatbot on/off toggle for
+                    // this chat (the command-toggle list is for other commands)
+                    const off = String(intent.state || 'off').toLowerCase() !== 'on';
+                    setEnabled(m.chat, !off);
+                    logOp('toggle', `plogme ${off ? 'off' : 'on'} in this chat`);
+                    await opts.reply(`_*${off ? '⛔' : '✅'} PLOGME ${off ? 'toggled OFF' : 'toggled ON'}*_\n_${off ? 'No auto-replies in this chat' : 'Auto-replies ON in this chat'}_`);
+                    return { handled: true };
+                }
                 const off = String(intent.state || 'off').toLowerCase() !== 'on';
                 toggleCommand(name, off);
                 logOp('toggle', `.${name} ${off ? 'off' : 'on'}`);
