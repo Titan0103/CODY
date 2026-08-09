@@ -901,15 +901,30 @@ async function execute(sock, m, opts) {
 
         const privileged = await isPrivileged(sock, m);
 
-        // Control intents — only for owner/sudo/dual. A ".plogme run ping"
+        // An EXPLICIT ".plogme off" in a chat means SILENT — no free-form AI
+        // chat. Explicit control ("plogme on", "plogme status", "plogme run
+        // ping") still works so the user can always re-enable.
+        // (@crysnovax—FIX10-08-26)
+        const explicitlyOff = hasExplicitToggle(m.chat) && !isEnabled(m.chat);
+
+        // Control intents — only for owner/sudo/dual. A "plogme run ping"
         // style message is treated the same as a bare control intent, and a
         // plain "ping" / "can you ping" / "check uptime" query auto-runs the
         // command too — no more strict phrasing. @crysnovax—FIX08-07-26
         if (privileged) {
             const body = isCommand ? text.slice(prefix.length).trim() : text;
             const isPlogmeInvocation = /^(plogme|plg|plog)(\s|$)/i.test(body);
-            const handledControl = await handleControlIntent(sock, m, opts, isPlogmeInvocation ? body : text);
-            if (handledControl) return true;
+
+            // A prefixed ".plogme <sub>" (e.g. "/plogme off") is OWNED by the
+            // router command src/Commands/AI/plogme.js, which already replied
+            // ("✖ DISABLED"). Running the control intents again made every
+            // prefixed toggle reply TWICE ("✖ DISABLED" + "⛔ PLOGME toggled
+            // OFF"). Only bare, non-prefixed phrases ("plogme off", "run
+            // ping") are handled here. (@crysnovax—FIX10-08-26)
+            if (!isCommand) {
+                const handledControl = await handleControlIntent(sock, m, opts, isPlogmeInvocation ? body : text);
+                if (handledControl) return true;
+            }
 
             // ── LLM intent brain ──
             // Anything else a privileged user says — plain chat OR an unhandled
@@ -917,8 +932,11 @@ async function execute(sock, m, opts) {
             // context ("please run the menu command for me", "create a command
             // called hi", "edit the ping command to say hi") with no hardcoded
             // phrasing. When the AI is unreachable we simply fall through to
-            // the normal chat flow below. @crysnovax—FIX09-08-26
-            if (!isCommand) {
+            // the normal chat flow below. Skipped when plogme was explicitly
+            // toggled off in this chat — off means SILENT, so "Hey" after
+            // ".plogme off" must NOT get an AI chat reply.
+            // (@crysnovax—FIX09-08-26 / FIX10-08-26)
+            if (!isCommand && !explicitlyOff) {
                 try {
                     const intent = await classifyIntent(isPlogmeInvocation ? body : text);
                     if (intent) {
