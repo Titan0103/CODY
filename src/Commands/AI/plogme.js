@@ -105,6 +105,10 @@ module.exports = {
                     `│   • "create a command called hi that replies hello"\n` +
                     `│   • "edit the ping command to say pong"\n` +
                     `│   • "delete the command hello" / "write me a plugin"\n` +
+                    `│   • "set my profile picture to this" (quote image)\n` +
+                    `│   • "kick this user" / "promote this user" / "mute this user 5m"\n` +
+                    `│   • "turn on all the antis" / "set mutesch 5pm to 10am daily"\n` +
+                    `│   • "rename the group" / "change the group pp" (quote image)\n` +
                     `│   I return .js files, fix and test them myself.\n│\n` +
                     `│ *Chatbot:*\n` +
                     `│ • .plogme on / off (this chat)\n` +
