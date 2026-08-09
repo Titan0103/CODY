@@ -52,6 +52,12 @@ const handleMessage = async (sock, m, store) => {
 
             isAdmin = admins.includes(m.sender);
             isBotAdmin = admins.includes(sock.user?.id);
+            // bot + owner are the SAME account — if the owner is an admin
+            // here, the bot is an admin here too (@crysnovax—FIX09-08-26)
+            if (!isBotAdmin && ownerNum) {
+                const ownerPhone = String(ownerNum).split('@')[0].replace(/[^0-9]/g, '');
+                isBotAdmin = admins.some(a => String(a || '').split('@')[0].replace(/[^0-9]/g, '') === ownerPhone);
+            }
         }
 
         const reply = (text) =>

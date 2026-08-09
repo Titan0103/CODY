@@ -39,6 +39,11 @@ const DEFAULT_PERSONALITY =
 const MAX_MEMORY = 60;
 const PREXZY = 'https://prexzyapis.com';
 
+// Invisible-character marker. EVERY message this bot sends carries it (see
+// ?.js sendMessage override + the reply hook), so any message containing it
+// is the bot's own output and must never be auto-replied to.
+const MARKER = '\u200E';
+
 /* ───────────────────────── JSON helpers ───────────────────────── */
 function loadJson(file, fallback = {}) {
     try {
@@ -407,12 +412,20 @@ async function handleControlIntent(sock, m, opts, text) {
 /* ───────────────────────── main execute (called from ?.js hook) ───────────────────────── */
 async function execute(sock, m, opts) {
     try {
-        if (m.key?.fromMe) return false;
         if (!m.chat || m.chat === 'status@broadcast') return false;
         if (m.mtype === 'reactionMessage') return false;
 
         const text = String(m.text || m.body || '').trim();
         if (!text) return false;
+
+        // ── Spam control = the invisible-character (marker) logic ONLY ──
+        // The owner and the bot are the SAME WhatsApp account, so every
+        // message the owner sends arrives with fromMe=true — the old blanket
+        // `if (m.key?.fromMe) return false;` guard is exactly why plogme
+        // never auto-replied. The ONLY thing we must never answer is the
+        // bot's own output, which always carries the invisible marker.
+        // (@crysnovax—FIX09-08-26)
+        if (text.includes(MARKER)) return false;
 
         const prefix = getVar('PREFIX', '.');
         const isCommand = text.startsWith(prefix);

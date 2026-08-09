@@ -2,8 +2,62 @@
 // Builds a real .vcf contact file with ALL members and sends it as a document,
 // so the user can import everyone's number in one tap. Alias: export.
 // @crysnovax—FIX09-08-26
+// FIX09-08-26: members now resolve their phone numbers through the store /
+// lidMapping, so @lid participant jids are no longer silently dropped
+// (that's what caused "✘ Could not build contact list for this group").
 const fs = require('fs');
 const path = require('path');
+
+// Resolve a participant to its real phone number (digits only) regardless of
+// whether the metadata gives us an @s.whatsapp.net jid or an @lid jid.
+async function resolvePhone(sock, p, store) {
+    const clean = String(p?.id || p?.jid || '').replace(/:\d+@/, '@');
+    const num = clean.split('@')[0].replace(/\D/g, '');
+    if (clean.endsWith('@s.whatsapp.net')) return num;
+
+    if (clean.endsWith('@lid')) {
+        // 1) the participant object may already carry the phone
+        if (p?.phoneNumber) {
+            const direct = String(p.phoneNumber).replace(/\D/g, '');
+            if (direct) return direct;
+        }
+        // 2) store contact lookup (Map or plain object)
+        try {
+            const contacts = store?.contacts;
+            const get = (k) => (contacts instanceof Map ? contacts.get(k) : contacts?.[k]);
+            let c = get(clean) || get(num);
+            if (c?.phoneNumber) {
+                const phone = String(c.phoneNumber).replace(/\D/g, '');
+                if (phone) return phone;
+            }
+            const all = contacts instanceof Map
+                ? [...contacts.values()]
+                : Object.values(contacts || {});
+            const found = all.find(x =>
+                x?.lid === clean || x?.id === clean ||
+                String(x?.id || '').split('@')[0] === num
+            );
+            if (found?.phoneNumber) {
+                const phone = String(found.phoneNumber).replace(/\D/g, '');
+                if (phone) return phone;
+            }
+        } catch {}
+        // 3) Baileys LID → phone mapping (this fork keeps it on signalRepository)
+        try {
+            const mapper = sock?.signalRepository?.lidMapping;
+            if (mapper?.getPNForLID) {
+                const raw = mapper.getPNForLID(clean);
+                const pn = raw && typeof raw.then === 'function' ? await raw : raw;
+                if (pn) {
+                    const phone = String(pn).replace(/\D/g, '');
+                    if (phone) return phone;
+                }
+            }
+        } catch {}
+        return null; // unresolvable — skip rather than save a fake number
+    }
+    return null;
+}
 
 module.exports = {
     name: 'saveall',
@@ -38,11 +92,14 @@ module.exports = {
             };
 
             let vcf = '';
+            let count = 0;
             for (const p of participants) {
-                const clean = String(p.id || '').replace(/:\d+@/, '@');
-                if (!clean.includes('@s.whatsapp.net')) continue;
-                const phone = clean.split('@')[0];
+                const clean = String(p?.id || p?.jid || '').replace(/:\d+@/, '@');
+                if (!clean.includes('@')) continue;
+
+                const phone = await resolvePhone(sock, p, store);
                 if (!phone || phone.length < 7) continue;
+
                 const name = getName(clean);
                 vcf +=
                     'BEGIN:VCARD\n' +
@@ -50,16 +107,15 @@ module.exports = {
                     `FN:${name}\n` +
                     `TEL;TYPE=CELL:+${phone}\n` +
                     'END:VCARD\n';
+                count++;
             }
 
-            if (!vcf) return reply('_✘ Could not build contact list for this group_');
+            if (!vcf || !count) return reply('_✘ Could not build contact list for this group_');
 
             const tempDir = path.join(__dirname, '../../temp');
             if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
             const filePath = path.join(tempDir, `contacts_${Date.now()}.vcf`);
             fs.writeFileSync(filePath, vcf, 'utf8');
-
-            const total = (vcf.match(/BEGIN:VCARD/g) || []).length;
 
             await sock.sendMessage(m.chat, {
                 document: fs.readFileSync(filePath),
@@ -67,7 +123,7 @@ module.exports = {
                 mimetype: 'text/vcard',
                 caption:
                     `╭─❍ *SAVE ALL* 𓉤\n│\n` +
-                    `│ 💾 ${total} contact(s) from\n` +
+                    `│ 💾 ${count} contact(s) from\n` +
                     `│ 𓄄 ${groupName}\n│\n` +
                     `│ _Import the .vcf to save every\n` +
                     `│  number in one tap._\n` +
