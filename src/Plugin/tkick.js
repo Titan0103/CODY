@@ -69,10 +69,22 @@ async function sendInviteFallback(sock, group, user) {
 
 // Returns true ONLY when the user is actually back in the group — the bot
 // must never announce an add that didn't happen (@crysnovax—FIX08-07-26).
+// FIX12-08-26: adds now use the canonical PHONE jid (LID adds can silently
+// fail) and the verification compares phone digits only — group metadata
+// participants may be @lid or @s.whatsapp.net, so a strict jid equality
+// match used to report "not added" and the re-add never landed.
 async function reAdd(sock, group, user) {
     try {
+        // prefer the real phone jid for the add
+        let jid = user;
+        try {
+            const { resolvePhoneJid } = require('./identityUtils');
+            const resolved = await resolvePhoneJid(sock, [user]);
+            if (resolved) jid = resolved;
+        } catch {}
+
         if (typeof sock.groupParticipantsUpdate === 'function') {
-            await sock.groupParticipantsUpdate(group, [user], 'add');
+            await sock.groupParticipantsUpdate(group, [jid], 'add');
         }
 
         // give the server a moment, then verify via fresh metadata
@@ -80,14 +92,11 @@ async function reAdd(sock, group, user) {
         const meta = await sock.groupMetadata(group).catch(() => null);
         if (!meta?.participants) return false;
 
-        const norm = (j = '') => String(j || '').replace(/:\d+@/g, '@');
-        const userNorm = norm(user);
-        const userPhone = userNorm.split('@')[0];
+        const digits = (j = '') => String(j || '').replace(/:\d+@/g, '@').split('@')[0].replace(/\D/g, '');
+        const userDigits = digits(jid);
+        if (!userDigits) return false;
 
-        return meta.participants.some(p => {
-            const id = norm(p.id);
-            return id === userNorm || id.split('@')[0] === userPhone;
-        });
+        return meta.participants.some(p => digits(p.id) === userDigits);
     } catch (err) {
         console.error('[TKICK] re-add failed:', err.message);
         return false;

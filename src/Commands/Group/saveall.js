@@ -10,12 +10,24 @@ const path = require('path');
 
 // Resolve a participant to its real phone number (digits only) regardless of
 // whether the metadata gives us an @s.whatsapp.net jid or an @lid jid.
-async function resolvePhone(sock, p, store) {
+// Primary path is the shared identityUtils resolver (lidMapping + group
+// metadata phoneNumber) — the same one the rest of the bot uses.
+// (@crysnovax—FIX12-08-26)
+async function resolvePhone(sock, group, p, store) {
     const clean = String(p?.id || p?.jid || '').replace(/:\d+@/, '@');
     const num = clean.split('@')[0].replace(/\D/g, '');
     if (clean.endsWith('@s.whatsapp.net')) return num;
 
     if (clean.endsWith('@lid')) {
+        // 0) shared resolver first — lidMapping + group metadata phone fields
+        try {
+            const { resolvePhoneJidWithMetadata } = require('../../Plugin/identityUtils');
+            const resolved = await resolvePhoneJidWithMetadata(sock, group, [clean]);
+            if (resolved) {
+                const phone = resolved.split('@')[0].replace(/\D/g, '');
+                if (phone) return phone;
+            }
+        } catch {}
         // 1) the participant object may already carry the phone
         if (p?.phoneNumber) {
             const direct = String(p.phoneNumber).replace(/\D/g, '');
@@ -78,17 +90,17 @@ module.exports = {
 
             const groupName = meta.subject || 'Group';
 
-            // Best-effort contact name from the store (falls back to the number)
-            const getName = (jid) => {
+            // Contact display name when available — otherwise the PHONE
+            // NUMBER, never the LID. (@crysnovax—FIX12-08-26)
+            const getName = (jid, phone) => {
                 const clean = String(jid || '').replace(/:\d+@/, '@');
-                const phone = clean.split('@')[0];
                 try {
                     const contacts = store?.contacts;
                     const c = contacts instanceof Map ? contacts.get(clean) : contacts?.[clean];
                     const nm = c?.name || c?.notify || c?.verifiedName;
                     if (nm && String(nm).trim()) return String(nm).trim();
                 } catch {}
-                return phone;
+                return phone || clean.split('@')[0];
             };
 
             let vcf = '';
@@ -97,10 +109,10 @@ module.exports = {
                 const clean = String(p?.id || p?.jid || '').replace(/:\d+@/, '@');
                 if (!clean.includes('@')) continue;
 
-                const phone = await resolvePhone(sock, p, store);
+                const phone = await resolvePhone(sock, m.chat, p, store);
                 if (!phone || phone.length < 7) continue;
 
-                const name = getName(clean);
+                const name = getName(clean, phone);
                 vcf +=
                     'BEGIN:VCARD\n' +
                     'VERSION:3.0\n' +

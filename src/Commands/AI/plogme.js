@@ -19,15 +19,15 @@ module.exports = {
             case 'on': {
                 if (rest === 'all') {
                     plogme.setGlobalPrivateEnabled(true);
-                    return reply('`—͟͟͞͞𖣘 plogme on all DM`');
+                    return reply('`✓ ENABLED` — auto-replies ON in all DMs (send ' + (prefix || '.') + 'plogme off all to disable)');
                 }
                 plogme.setEnabled(m.chat, true);
-                return reply('`Chatbot ON`');
+                return reply('`✓ ENABLED` — auto-replies ON in this chat (send ' + (prefix || '.') + 'plogme off to disable)');
             }
             case 'off': {
                 if (rest === 'all') {
                     plogme.setGlobalPrivateEnabled(false);
-                    return reply('`GLOBAL MODE OFF`');
+                    return reply('`✘ DISABLED` — no auto-replies in DMs (send ' + (prefix || '.') + 'plogme on all to re-enable)');
                 }
                 plogme.setEnabled(m.chat, false);
                 return reply('`✘ DISABLED` — no auto-replies in this chat (send ' + (prefix || '.') + 'plogme on to re-enable)');
