@@ -544,8 +544,18 @@ try {
                 console.error('[PLOGME HOOK ERROR]', err?.message || err);
             }
 
-            const { handleIncomingMessage } = require('./src/Commands/Core/\u275A.js');
-            await handleIncomingMessage(sock, m, mek);
+            // ── Legacy chatbot brain (❚.js) — PLOGME replaced the old
+            //    chatbot, so an explicit ".plogme off" in this chat must
+            //    silence it too, otherwise the old brain keeps auto-replying
+            //    after the toggle. (@crysnovax—FIX10-08-26)
+            try {
+                if (plogmeCmd.isEnabled(m.chat) || !plogmeCmd.hasExplicitToggle(m.chat)) {
+                    const { handleIncomingMessage } = require('./src/Commands/Core/\u275A.js');
+                    await handleIncomingMessage(sock, m, mek);
+                }
+            } catch (err) {
+                console.error('[LEGACY CHATBOT ERROR]', err?.message || err);
+            }
 
             try {
                 const crysnova = require('./src/Commands/AI/crysnova.js');

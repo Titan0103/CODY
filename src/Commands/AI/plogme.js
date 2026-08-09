@@ -30,7 +30,7 @@ module.exports = {
                     return reply('`GLOBAL MODE OFF`');
                 }
                 plogme.setEnabled(m.chat, false);
-                return reply('`✘ DISABLED`');
+                return reply('`✘ DISABLED` — no auto-replies in this chat (send ' + (prefix || '.') + 'plogme on to re-enable)');
             }
             case 'mode': {
                 const mode = (args[1] || '').toLowerCase();
