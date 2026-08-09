@@ -344,16 +344,104 @@ async function runCommandAction(sock, m, opts, target) {
     const [cmdName, ...rest] = raw.split(/\s+/);
     if (SELF_NAMES.has(cmdName.toLowerCase())) return '_✘ PLOGME can\'t run itself — just talk to me_';
     const cmd = getCommand(cmdName);
-    if (!cmd || typeof cmd.execute !== 'function') return `_✘ Command .${cmdName} not found_`;
+    if (!cmd || typeof cmd.execute !== 'function') {
+        // Never just say "not found" — suggest the closest real command and
+        // point at the menu so the user can recover. (@crysnovax—FIX11-08-26)
+        const close = closestCommand(cmdName);
+        return close
+            ? `_✘ Command .${cmdName} not found — did you mean .${close}?_`
+            : `_✘ Command .${cmdName} not found_\n_Try .menu to see the available commands._`;
+    }
 
     const args = rest;
     const reply = async (txt) => opts.reply(String(txt || ''));
+    // Mirror the real dispatcher's opts (crysMsg.js) so commands behave the
+    // same when PLOGME drives them. The requester is owner/sudo/dual and is
+    // implicitly an admin of anything the bot can do.
+    let cfg = null;
+    try { cfg = require('../../settings/config'); } catch {}
     try {
-        await cmd.execute(sock, m, { args, reply, prefix, usedPrefix: prefix, command: cmdName.toLowerCase() });
+        await cmd.execute(sock, m, {
+            args, reply, prefix, usedPrefix: prefix, command: cmdName.toLowerCase(),
+            text: rest.join(' '),
+            isOwner: true, isSudo: true, isDual: true,
+            isAdmin: true, isGroupAdmin: true, isBotAdmin: true, isOwnerAdmin: true,
+            isGroup: m.isGroup, groupMeta: null, config: cfg, getVar,
+        });
         return true;
     } catch (e) {
         return `_✘ .${cmdName} errored: ${e.message}_`;
     }
+}
+
+/* ───────────────────────── task helpers (real actions, not just .cm) ───────────────────────── */
+// All the anti-* protections PLOGME can switch on/off in one go.
+const ANTI_COMMANDS = [
+    'antilink', 'antidelete', 'antiedit', 'anticall', 'antispam',
+    'antiword', 'antitag', 'antiforward', 'antibot',
+    'antipromote', 'antidemote', 'antigm', 'antigroupstatus',
+];
+
+// Canonical, de-duplicated command names from the live registry — used to
+// ground the LLM classifier so it never invents names like ".toaudio".
+function commandNameList() {
+    try {
+        const { getAll } = require('../../Plugin/crysCmd');
+        const seen = new Set();
+        const names = [];
+        for (const [, cmd] of getAll()) {
+            if (cmd && cmd.name && !seen.has(cmd.name)) { seen.add(cmd.name); names.push(cmd.name); }
+        }
+        return names;
+    } catch { return []; }
+}
+
+// Levenshtein distance — lets "kik" suggest "kick" even though neither is a
+// prefix/substring of the other.
+function editDistance(a, b) {
+    if (!a.length) return b.length;
+    if (!b.length) return a.length;
+    const dp = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+    for (let j = 0; j <= b.length; j++) dp[0][j] = j;
+    for (let i = 1; i <= a.length; i++) {
+        for (let j = 1; j <= b.length; j++) {
+            dp[i][j] = Math.min(
+                dp[i - 1][j] + 1,
+                dp[i][j - 1] + 1,
+                dp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+            );
+        }
+    }
+    return dp[a.length][b.length];
+}
+
+// Best-effort fuzzy match when the AI asked for a command that does not exist.
+function closestCommand(raw) {
+    const n = String(raw || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (!n) return null;
+    const names = commandNameList();
+    for (const name of names) if (name === n) return name;
+    for (const name of names) if (name.startsWith(n) || n.startsWith(name)) return name;
+    for (const name of names) if (name.includes(n) || n.includes(name)) return name;
+    let best = null, bestD = Infinity;
+    for (const name of names) {
+        const d = editDistance(n, name);
+        if (d < bestD) { bestD = d; best = name; }
+    }
+    const maxD = Math.max(1, Math.floor(n.length / 3));
+    return bestD <= maxD ? best : null;
+}
+
+// Resolve "who" from a natural-language request. "this user / him / her /
+// them" = the mentioned user, else the quoted message sender, else a phone
+// number written in the request. Returns a JID or null.
+function resolveTargetJid(m, userField) {
+    const str = String(userField || '').trim();
+    const pronoun = /^(this|him|her|them|that|he|she|the user|this user|that user|the person|that person|the mentioned|mentioned|the quoted|quoted|the one|this guy|that guy)$/i.test(str);
+    if (!str || pronoun) return m.mentionedJid?.[0] || m.quoted?.sender || null;
+    const digits = str.replace(/[^0-9]/g, '');
+    if (digits.length >= 7) return digits + '@s.whatsapp.net';
+    return null;
 }
 
 async function runTest(sock, m, opts, subject) {
@@ -589,6 +677,11 @@ const KNOWN_ACTIONS = new Set([
     'run_command', 'create_file', 'edit_file', 'delete_file', 'toggle_command',
     'list_commands', 'reload', 'restart', 'status', 'memory', 'clear_memory',
     'remember', 'forget', 'test', 'fix_code', 'train', 'personality', 'dev', 'chat',
+    // FIX11-08-26: real task intents — PLOGME carries these out directly with
+    // the message context (quoted image, mentioned user) instead of trying to
+    // run a made-up .cm internally.
+    'set_pp', 'group_pp', 'group_name', 'kick', 'promote', 'demote',
+    'mute_user', 'unmute_user', 'mutesch', 'antis', 'plogme_mode',
 ]);
 
 // Strip markdown fences / extra text and pull out the first JSON object.
@@ -606,22 +699,37 @@ function parseIntentJson(raw) {
 }
 
 function buildClassifierPrompt(userText) {
+    const realCommands = commandNameList();
     return `You are PLOGME, the command brain inside a WhatsApp bot. The owner just sent a message. ` +
         `Decide what they want and reply with ONLY one JSON object — no markdown, no explanation. ` +
         `If the request is casual chat, use action "chat" with a friendly short reply. ` +
         `If they ask to run/execute/open/check/show a bot command — even inside a normal sentence — use ` +
-        `"run_command" with the exact command name they meant. The bot has hundreds of commands ` +
-        `(menu, ping, sticker, toimg, toaudio, tiktok, play, weather, translate, etc.); if you are not sure ` +
-        `of the name, still use "run_command" with the name they said. If they ask to create/make/write a ` +
-        `command, plugin, script or .js file, use "create_file" with the full file content. If they ask to ` +
-        `edit/change/update/improve a file, use "edit_file" (provide "find" — the exact snippet to replace — ` +
-        `and "content" — the replacement; or provide "content" alone to rewrite the whole file). ` +
+        `"run_command" with the EXACT command name taken ONLY from the "Available commands" list at the ` +
+        `bottom of this prompt (never invent a name — e.g. a sound-effect request maps to "sound", not ` +
+        `"toaudio"). If they ask to create/make/write a command, plugin, script or .js file, use ` +
+        `"create_file" with the full file content. If they ask to edit/change/update/improve a file, use ` +
+        `"edit_file" (provide "find" — the exact snippet to replace — and "content" — the replacement; or ` +
+        `provide "content" alone to rewrite the whole file). ` +
         `If they ask to delete/remove a file or command, use "delete_file". If they ask to fix or repair ` +
         `code, use "fix_code". If they ask to test/check code or a file, use "test". ` +
         `If they ask to toggle a command, use "toggle_command". ` +
+        `\nNATURAL-LANGUAGE TASKS (handle these directly with their own actions, do NOT route them through run_command):\n` +
+        `- "change/set my/bot profile picture to this" (an image is quoted) -> {"action":"set_pp","target":"bot"}\n` +
+        `- "change/set the group profile picture / group pp" (image quoted) -> {"action":"set_pp","target":"group"}\n` +
+        `- "rename the group / change group name to X" -> {"action":"group_name","name":"X"}\n` +
+        `- "kick/remove/delete this user" or "kick @user" -> {"action":"kick","user":"mentioned"}\n` +
+        `- "promote/make this user admin" -> {"action":"promote","user":"mentioned"}\n` +
+        `- "demote/unadmin this user" -> {"action":"demote","user":"mentioned"}\n` +
+        `- "mute/silence this user for 5m" -> {"action":"mute_user","user":"mentioned","duration":"5m","reason":"..."}\n` +
+        `- "unmute this user" -> {"action":"unmute_user","user":"mentioned"}\n` +
+        `- "schedule a mute / set mutesch 5pm to 10am daily" -> {"action":"mutesch","start":"5pm","end":"10am","repeat":"daily"}\n` +
+        `- "turn on/off all the antis / protections / security" -> {"action":"antis","state":"on"}\n` +
+        `- "set plogme mode to all/tag" -> {"action":"plogme_mode","mode":"all"}\n` +
+        `(for user actions the target comes from the @mention or the quoted message, so "mentioned" is the right value)\n\n` +
         `Possible actions: run_command, create_file, edit_file, delete_file, toggle_command, ` +
         `list_commands, reload, restart, status, memory, clear_memory, remember, forget, ` +
-        `test, fix_code, train, personality, dev, chat.\n\n` +
+        `test, fix_code, train, personality, dev, set_pp, group_name, group_pp, kick, promote, ` +
+        `demote, mute_user, unmute_user, mutesch, antis, plogme_mode, chat.\n\n` +
         `JSON shapes:\n` +
         `- {"action":"run_command","command":"<name>","args":"<optional>"}\n` +
         `- {"action":"create_file","path":"src/Commands/User/name.js","content":"<FULL file content>"}\n` +
@@ -635,8 +743,14 @@ function buildClassifierPrompt(userText) {
         `- {"action":"test","target":"<code or file path>"} {"action":"fix_code","code":"<code>"}\n` +
         `- {"action":"train","text":"<text>"} {"action":"personality","text":"<text>"}\n` +
         `- {"action":"dev","state":"on|off|toggle"}\n` +
+        `- {"action":"set_pp","target":"bot|group"} {"action":"group_name","name":"<new name>"}\n` +
+        `- {"action":"kick|promote|demote|mute_user|unmute_user","user":"mentioned","duration":"<optional 5m>","reason":"<optional>"}\n` +
+        `- {"action":"mutesch","start":"5pm","end":"10am","repeat":"daily|once"}\n` +
+        `- {"action":"antis","state":"on|off"} {"action":"plogme_mode","mode":"all|tag"}\n` +
         `- {"action":"chat","reply":"<your short reply>"}\n\n` +
-        `Owner message: "${String(userText || '').slice(0, 2000)}"`;
+        `Available commands (ONLY use these exact names for run_command):\n` +
+        (realCommands.length ? realCommands.slice(0, 160).join(', ') : '(command list unavailable)') +
+        `\n\nOwner message: "${String(userText || '').slice(0, 2000)}"`;
 }
 
 // Classify a privileged message into a structured intent. Returns the intent
@@ -864,6 +978,133 @@ async function executeIntent(sock, m, opts, intent) {
                 return { handled: true };
             }
 
+            // ── REAL TASKS (FIX11-08-26): PLOGME carries these out itself
+            //    with the message context — quoted image, mentioned user —
+            //    instead of just echoing a .cm internally.
+            case 'set_pp':
+            case 'group_pp': {
+                const isGroup = action === 'group_pp' || String(intent.target || '').toLowerCase() === 'group';
+                const quoted = m.quoted ? (m.quoted.msg || m.quoted) : null;
+                const mime = String(quoted?.mimetype || m.quoted?.mtype || '');
+                if (!m.quoted || !/image/i.test(mime)) {
+                    await opts.reply('_✘ I need an image — quote (reply to) an image with your request._');
+                    return { handled: true };
+                }
+                const ppRes = await runCommandAction(sock, m, opts, isGroup ? 'setgpp' : 'setpp');
+                if (ppRes !== true) await opts.reply(ppRes);
+                logOp('set_pp', `${isGroup ? 'group' : 'bot'} profile picture updated`);
+                return { handled: true };
+            }
+
+            case 'group_name': {
+                if (!m.isGroup) { await opts.reply('_✘ That only works in a group_'); return { handled: true }; }
+                const name = String(intent.name || '').trim();
+                if (!name) { await opts.reply('_✘ What should the new group name be?_'); return { handled: true }; }
+                const res = await runCommandAction(sock, m, opts, 'gcname ' + name);
+                if (res !== true) await opts.reply(res);
+                logOp('group_name', `renamed group to "${name.slice(0, 40)}"`);
+                return { handled: true };
+            }
+
+            case 'kick': {
+                const t = resolveTargetJid(m, intent.user);
+                if (!t) { await opts.reply('_✘ Who should I kick? Mention them (@user) or reply to their message._'); return { handled: true }; }
+                const res = await runCommandAction(sock, m, opts, 'kick ' + t.split('@')[0]);
+                if (res !== true) await opts.reply(res);
+                logOp('kick', `kicked @${t.split('@')[0]}`);
+                return { handled: true };
+            }
+
+            case 'promote': {
+                const t = resolveTargetJid(m, intent.user);
+                if (!t) { await opts.reply('_✘ Who should I promote? Mention them (@user) or reply to their message._'); return { handled: true }; }
+                const res = await runCommandAction(sock, m, opts, 'promote ' + t.split('@')[0]);
+                if (res !== true) await opts.reply(res);
+                logOp('promote', `promoted @${t.split('@')[0]}`);
+                return { handled: true };
+            }
+
+            case 'demote': {
+                const t = resolveTargetJid(m, intent.user);
+                if (!t) { await opts.reply('_✘ Who should I demote? Mention them (@user) or reply to their message._'); return { handled: true }; }
+                const res = await runCommandAction(sock, m, opts, 'demote ' + t.split('@')[0]);
+                if (res !== true) await opts.reply(res);
+                logOp('demote', `demoted @${t.split('@')[0]}`);
+                return { handled: true };
+            }
+
+            case 'mute_user':
+            case 'unmute_user': {
+                if (!m.isGroup) { await opts.reply('_✘ That only works in a group_'); return { handled: true }; }
+                const t = resolveTargetJid(m, intent.user);
+                if (!t) { await opts.reply('_✘ Who should I mute? Mention them (@user) or reply to their message._'); return { handled: true }; }
+                const { getCommand } = require('../../Plugin/crysCmd');
+                const cmd = getCommand('muteuser');
+                if (!cmd) { await opts.reply('_✘ .muteuser not loaded_'); return { handled: true }; }
+                const num = t.split('@')[0];
+                const mOpts = {
+                    args: [], prefix: getVar('PREFIX', '.'), reply: opts.reply,
+                    isGroup: true, isAdmin: true, isBotAdmin: true,
+                    sender: m.sender, mentionedJid: m.mentionedJid,
+                };
+                if (action === 'unmute_user') {
+                    mOpts.args.push(num);
+                    // muteuser detects unmute via the text starting with prefix+unmute
+                    await cmd.execute(sock, { ...m, text: mOpts.prefix + 'unmute ' + num }, mOpts);
+                } else {
+                    const durMatch = String(intent.duration || '').match(/\d+\s?(s|m|h|d|w|mo)/i);
+                    const duration = durMatch ? durMatch[0].replace(/\s+/g, '') : '';
+                    const reason = String(intent.reason || 'No reason').trim() || 'No reason';
+                    if (!m.mentionedJid?.length && !m.quoted?.sender) mOpts.args.push(num);
+                    if (duration) mOpts.args.push(duration);
+                    mOpts.args.push(reason);
+                    await cmd.execute(sock, m, mOpts);
+                }
+                logOp(action, `${action === 'unmute_user' ? 'unmuted' : 'muted'} @${num}`);
+                return { handled: true };
+            }
+
+            case 'mutesch': {
+                if (!m.isGroup) { await opts.reply('_✘ That only works in a group_'); return { handled: true }; }
+                const start = String(intent.start || '').trim();
+                const end = String(intent.end || '').trim();
+                const repeat = String(intent.repeat || 'daily').toLowerCase();
+                if (!start || !end) {
+                    await opts.reply('_✘ Give me the times — e.g. "mutesch 5pm to 10am daily"_');
+                    return { handled: true };
+                }
+                const res = await runCommandAction(sock, m, opts, `mutesch ${start} to ${end} ${repeat === 'once' ? 'once' : 'daily'}`);
+                if (res !== true) await opts.reply(res);
+                logOp('mutesch', `scheduled mute ${start} → ${end} (${repeat})`);
+                return { handled: true };
+            }
+
+            case 'antis': {
+                const on = String(intent.state || 'on').toLowerCase() !== 'off';
+                let ok = 0;
+                const failed = [];
+                for (const name of ANTI_COMMANDS) {
+                    const res = await runCommandAction(sock, m, opts, name + (on ? ' on' : ' off'));
+                    if (res === true) ok++;
+                    else failed.push(name);
+                }
+                await opts.reply(
+                    `_*${on ? '🛡️ ALL ANTIS ON' : '🛡️ ALL ANTIS OFF'}*_\n` +
+                    `✓ ${ok}/${ANTI_COMMANDS.length} toggled\n` +
+                    (failed.length ? `✘ failed: ${failed.join(', ')}` : '_Done._')
+                );
+                logOp('antis', `${on ? 'enabled' : 'disabled'} ${ok} anti-commands`);
+                return { handled: true };
+            }
+
+            case 'plogme_mode': {
+                const modeArg = String(intent.mode || '').toLowerCase();
+                if (modeArg !== 'all' && modeArg !== 'tag') { await opts.reply('_✘ Mode must be all or tag_'); return { handled: true }; }
+                setMode(m.chat, modeArg);
+                await opts.reply(`_*✐ Mode ${modeArg.toUpperCase()}*_`);
+                return { handled: true };
+            }
+
             case 'chat': {
                 if (String(intent.reply || '').trim()) await opts.reply(String(intent.reply).trim());
                 return { handled: true };
@@ -900,6 +1141,22 @@ async function execute(sock, m, opts) {
         const isCommand = text.startsWith(prefix);
 
         const privileged = await isPrivileged(sock, m);
+
+        // ── MODE BOUNDARY (tag vs all) — observed for EVERYONE, including
+        //    the owner/sudo. In a group with "tag" mode, PLOGME only engages
+        //    when it is actually addressed: @-mentioned, or called by name
+        //    ("plogme ..."). Untagged casual chat is ignored so tag mode
+        //    NEVER behaves like "all" mode. (@crysnovax—FIX11-08-26)
+        const mode = getMode(m.chat);
+        if (m.isGroup && mode === 'tag') {
+            const mentioned = (m.mentionedJid || []).map(j => String(j).replace(/:\d+@/, '@'));
+            const botJid = String(sock.user?.id || '').replace(/:\d+@/, '@');
+            const lid = sock.user?.lid || '';
+            const isTagged = mentioned.some(j => j === botJid || (lid && j === String(lid).replace(/:\d+@/, '@')));
+            const body = isCommand ? text.slice(prefix.length).trim() : text;
+            const isNamed = /^(plogme|plg|plog)(\s|$)/i.test(body);
+            if (!isTagged && !(privileged && isNamed)) return false;
+        }
 
         // An EXPLICIT ".plogme off" in a chat means SILENT — no free-form AI
         // chat. Explicit control ("plogme on", "plogme status", "plogme run
@@ -960,15 +1217,6 @@ async function execute(sock, m, opts) {
 
         // never respond to bot commands (router handles them)
         if (isCommand) return false;
-
-        // mode tag → only when the bot is mentioned
-        const mode = getMode(m.chat);
-        if (m.isGroup && mode === 'tag') {
-            const botJid = String(sock.user?.id || '').replace(/:\d+@/, '@');
-            const mentioned = (m.mentionedJid || []).map(j => String(j).replace(/:\d+@/, '@'));
-            const lid = sock.user?.lid || '';
-            if (!mentioned.some(j => j === botJid || (lid && j === String(lid).replace(/:\d+@/, '@')))) return false;
-        }
 
         // typing indicator while the AI thinks (always, not just dev mode)
         await sock.sendPresenceUpdate('composing', m.chat).catch(() => {});
