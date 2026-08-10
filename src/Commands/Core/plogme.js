@@ -143,6 +143,33 @@ function markdownToPdf(md) {
     });
 }
 
+// True when the message explicitly addresses the bot: it @-mentions the bot,
+// QUOTES one of the bot's own replies (every bot reply carries MARKER), or
+// calls it by name. Bare chat — including bare no-prefix commands like "ping"
+// — is NOT "addressed", so PLOGME never answers on top of the router's reply.
+// (@crysnovax—FIX12-08-26)
+function isAddressed(sock, m) {
+    try {
+        const mentioned = (m.mentionedJid || []).map(j => String(j).replace(/:\d+@/, '@'));
+        const botJid = String(sock?.user?.id || '').replace(/:\d+@/, '@');
+        const lid = sock?.user?.lid || '';
+        if (mentioned.some(j => j === botJid || (lid && j === String(lid).replace(/:\d+@/, '@')))) return true;
+        const quotedText = String(
+            m?.quoted?.text
+            || m?.quoted?.message?.extendedTextMessage?.text
+            || m?.quoted?.message?.conversation
+            || ''
+        );
+        if (quotedText && quotedText.includes(MARKER)) return true;
+        const qSender = m?.quoted?.sender || m?.quoted?.key?.participant;
+        if (qSender) {
+            const qs = String(qSender).replace(/:\d+@/, '@');
+            if (qs === botJid || (lid && qs === String(lid).replace(/:\d+@/, '@'))) return true;
+        }
+        return false;
+    } catch { return false; }
+}
+
 
 const FILES = {
     toggle:     path.join(DATA_DIR, 'plogme_toggle.json'),
@@ -1397,21 +1424,17 @@ async function execute(sock, m, opts) {
 
         const privileged = await isPrivileged(sock, m);
 
-        // ── MODE BOUNDARY (tag vs all) — observed for EVERYONE, including
-        //    the owner/sudo. In a group with "tag" mode, PLOGME only engages
-        //    when it is actually addressed: @-mentioned, or called by name
-        //    ("plogme ..."). Untagged casual chat is ignored so tag mode
-        //    NEVER behaves like "all" mode. (@crysnovax—FIX11-08-26)
-        const mode = getMode(m.chat);
-        if (m.isGroup && mode === 'tag') {
-            const mentioned = (m.mentionedJid || []).map(j => String(j).replace(/:\d+@/, '@'));
-            const botJid = String(sock.user?.id || '').replace(/:\d+@/, '@');
-            const lid = sock.user?.lid || '';
-            const isTagged = mentioned.some(j => j === botJid || (lid && j === String(lid).replace(/:\d+@/, '@')));
-            const body = isCommand ? text.slice(prefix.length).trim() : text;
-            const isNamed = /^(plogme|plg|plog)(\s|$)/i.test(body);
-            if (!isTagged && !(privileged && isNamed)) return false;
-        }
+        // ── ENGAGEMENT BOUNDARY — PLOGME only engages when it is explicitly
+        //    addressed: (1) the message QUOTES one of PLOGME's own replies,
+        //    (2) PLOGME is @-mentioned, or (3) the message calls it by name
+        //    ("plogme ..."). A bare no-prefix command like "ping" therefore
+        //    runs EXACTLY ONCE via the router and PLOGME never answers on top
+        //    of it. This applies in every chat (group + DM); setting "mode
+        //    all" opts back into broad engagement. (@crysnovax—FIX12-08-26)
+        const body = isCommand ? text.slice(prefix.length).trim() : text;
+        const isNamed = /^(plogme|plg|plog)(\s|$)/i.test(body);
+        const engaged = getMode(m.chat) === 'all' || isNamed || isAddressed(sock, m);
+        if (!engaged) return false;
 
         // An EXPLICIT ".plogme off" in a chat means SILENT — no free-form AI
         // chat. Explicit control ("plogme on", "plogme status", "plogme run
@@ -1546,6 +1569,7 @@ module.exports = {
     parseIntentJson,
     executeIntent,
     handleControlIntent,
+    isAddressed,
     resolveWritePath,
     ensureCommandModule,
     writeFileWithAgentFix,

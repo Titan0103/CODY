@@ -1,7 +1,8 @@
 const axios = require('axios');
 const config = require('../../../settings/config');
 const { resolvePhoneJid, resolvePhoneJidWithMetadata } = require('../../Plugin/identityUtils');
-const ECO_API = process.env.ECO_API_URL || config.api?.economy || 'https://econ.crysnovax.link';
+const ECO_DEFAULT = 'https://econ.crysnovax.link';
+const ECO_API = process.env.ECO_API_URL || config.api?.economy || ECO_DEFAULT;
 
 const num = (v) => Number(v || 0).toLocaleString();
 
@@ -9,27 +10,44 @@ function ecoErr(err, fallback = 'Failed') {
     return err.response?.data?.error || err.message || fallback;
 }
 
-// Every call is retried once on network-level failures and always logs a
-// diagnostic line ([ECON] endpoint phone → reason base) so a "✘ Failed" can
-// actually be traced. The API is keyed by phone number — the header must
-// always be digits. (@crysnovax—FIX12-08-26)
+// Bullet-proof API client: tries the configured base URL and then the
+// built-in default, first with axios and then with the global fetch() (a
+// different TLS stack) — so a bad ECO_API_URL env value, a flaky TLS path or
+// a transient network error can never hide behind a bare "✘ Failed". Every
+// failure is logged with the reason + bases tried for diagnosis.
+// (@crysnovax—FIX12-08-26)
 async function eco(endpoint, phone, body = {}) {
     const method = endpoint.startsWith('GET') ? 'get' : 'post';
-    const url = ECO_API + endpoint.replace(/^(GET|POST) /, '');
+    const path = endpoint.replace(/^(GET|POST) /, '');
     const safePhone = String(phone || '').replace(/[^0-9]/g, '');
     if (!safePhone) throw new Error('Could not resolve the sender\'s phone number');
-    const call = () => (method === 'post'
-        ? axios.post(url, body, { headers: { 'X-User-Phone': safePhone }, timeout: 12000 })
-        : axios.get(url, { headers: { 'X-User-Phone': safePhone }, timeout: 12000 }));
-    try {
-        return await call();
-    } catch (err) {
-        if (!err.response) {
-            try { return await call(); } catch {}
+    const headers = { 'X-User-Phone': safePhone };
+    const bases = [ECO_API, ECO_DEFAULT].filter((b, i, a) => b && a.indexOf(b) === i);
+    let lastErr = null;
+    for (const base of bases) {
+        const url = base + path;
+        try {
+            const res = method === 'post'
+                ? await axios.post(url, body, { headers, timeout: 8000 })
+                : await axios.get(url, { headers, timeout: 8000 });
+            return res;
+        } catch (err) { lastErr = err; }
+        // second chance with global fetch (different HTTP/TLS stack)
+        if (typeof fetch === 'function' && typeof AbortSignal?.timeout === 'function') {
+            try {
+                const res = await fetch(url, {
+                    method: method.toUpperCase(),
+                    headers: { ...headers, 'Content-Type': 'application/json' },
+                    body: method === 'post' ? JSON.stringify(body) : undefined,
+                    signal: AbortSignal.timeout(8000)
+                });
+                if (res.ok) return { data: await res.json(), status: res.status };
+                lastErr = new Error(`HTTP ${res.status}`);
+            } catch (err) { lastErr = err; }
         }
-        console.error(`[ECON] ${endpoint.replace(/^(GET|POST) /, '')} phone=${safePhone} → ${err.response?.status || err.code || err.message} (base: ${ECO_API})`);
-        throw err;
     }
+    console.error(`[ECON] ${path} phone=${safePhone} → ${lastErr?.response?.status || lastErr?.code || lastErr?.message} (bases: ${bases.join(', ')})`);
+    throw lastErr || new Error('Failed');
 }
 
 async function sendTable(sock, chat, header, title, rows, footer) {

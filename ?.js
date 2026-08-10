@@ -544,34 +544,11 @@ try {
                 console.error('[PLOGME HOOK ERROR]', err?.message || err);
             }
 
-            // ── Legacy chatbot brain (❚.js) — fully subordinated to PLOGME:
-            //    it ONLY runs when PLOGME is explicitly enabled in this chat,
-            //    so it can never auto-reply while PLOGME is off (or by
-            //    default), never double-reply, and never clash with the
-            //    control brain. (@crysnovax—FIX12-08-26)
-            try {
-                if (plogmeCmd.isEnabled(m.chat)) {
-                    const { handleIncomingMessage } = require('./src/Commands/Core/\u275A.js');
-                    await handleIncomingMessage(sock, m, mek);
-                }
-            } catch (err) {
-                console.error('[LEGACY CHATBOT ERROR]', err?.message || err);
-            }
-
-            // ── CRYSNOVA legacy brain — subordinated to PLOGME like ❚.js:
-            //    it ONLY auto-replies when PLOGME is explicitly enabled in
-            //    this chat, so it can never answer while PLOGME is off (or
-            //    by default), never double-reply, and is always controllable
-            //    via .plogme on/off. (@crysnovax—FIX12-08-26)
-            try {
-                if (plogmeCmd.isEnabled(m.chat)) {
-                    const crysnova = require('./src/Commands/AI/crysnova.js');
-                    const msgText = (m.text || '').toLowerCase().trim();
-                    if (!(msgText.startsWith('.crysnova') || msgText.startsWith('.ai') || msgText.startsWith('.crys'))) {
-                        if (crysnova?.onMessage) await crysnova.onMessage(sock, m);
-                    }
-                }
-            } catch {}
+            // ── Legacy auto-reply brains (❚.js chatbot + CRYSNOVA onMessage)
+            //    REMOVED: both auto-replied on top of PLOGME whenever it
+            //    was enabled, which is what made commands/replies appear
+            //    twice in no-prefix mode. PLOGME is the single brain now.
+            //    (@crysnovax—FIX12-08-26)
 
             try {
                 const antigm = require('./src/Commands/Admin/antigm.js');
