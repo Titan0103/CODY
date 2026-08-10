@@ -1147,8 +1147,33 @@ async function execute(sock, m, opts) {
         // (@crysnovax—FIX09-08-26)
         if (text.includes(MARKER)) return false;
 
-        const prefix = getVar('PREFIX', '.');
-        const isCommand = text.startsWith(prefix);
+        const prefix = (() => {
+            const raw = getVar('PREFIX', '.');
+            return (raw === 'null' || raw === '') ? '' : String(raw);
+        })();
+        const isCommand = prefix ? text.startsWith(prefix) : false;
+
+        // ── Command-lookalike guard (kills the double-reply bug) ──
+        // The router (crysMsg.js) runs BEFORE this hook and already executed
+        // & replied to any message it recognized as a command. In prefix mode
+        // that's anything starting with the prefix; in no-prefix mode
+        // (PREFIX=null/empty) it's any message whose FIRST WORD is a
+        // registered command/alias. If we don't mirror that here, PLOGME
+        // answers every no-prefix command a SECOND time — the "commands run
+        // double when PREFIX is null" bug. (@crysnovax—FIX12-08-26)
+        let isCommandLike = isCommand;
+        if (!isCommandLike) {
+            try {
+                const { getCommand } = require('../../Plugin/crysCmd');
+                const firstWord = text.trim().split(/\s+/)[0]?.toLowerCase() || '';
+                if (firstWord) {
+                    const hit = getCommand(firstWord);
+                    isCommandLike = !!(hit && (String(hit.name || '').toLowerCase() === firstWord
+                        || (hit.alias || []).map(a => String(a).toLowerCase()).includes(firstWord)));
+                }
+            } catch {}
+        }
+        if (isCommandLike) return false;
 
         const privileged = await isPrivileged(sock, m);
 
@@ -1292,6 +1317,7 @@ module.exports = {
     classifyIntent,
     parseIntentJson,
     executeIntent,
+    handleControlIntent,
     resolveWritePath,
     ensureCommandModule,
     writeFileWithAgentFix,

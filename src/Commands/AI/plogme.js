@@ -15,6 +15,74 @@ module.exports = {
         const sub = (args[0] || '').toLowerCase();
         const rest = args.slice(1).join(' ').trim();
 
+        const helpText =
+            `╭─❍ *PLOGME* 𓉤
+│
+` +
+            `│ 🧠 Internal processing AI — auto-reply chatbot + smart bot control.
+` +
+            `│ ✨ Just talk to me — I understand context:
+` +
+            `│   • "run the menu command" / "can you ping?"
+` +
+            `│   • "create a command called hi that replies hello"
+` +
+            `│   • "edit the ping command to say pong"
+` +
+            `│   • "delete the command hello" / "write me a plugin"
+` +
+            `│   • "set my profile picture to this" (quote image)
+` +
+            `│   • "kick this user" / "promote this user" / "mute this user 5m"
+` +
+            `│   • "turn on all the antis" / "set mutesch 5pm to 10am daily"
+` +
+            `│   • "rename the group" / "change the group pp" (quote image)
+` +
+            `│   I return .js files, fix and test them myself.
+│
+` +
+            `│ *Chatbot:*
+` +
+            `│ • .plogme on / off (this chat)
+` +
+            `│ • .plogme on all / off all (global DM)
+` +
+            `│ • .plogme mode all | tag
+` +
+            `│ • .plogme train <text> (global)
+` +
+            `│ • .plogme personality <text> (global)
+` +
+            `│ • .plogme status | memory | clear
+` +
+            `│ • .plogme remember <fact> | forget <n>
+│
+` +
+            `│ *Owner / sudo / dual — bot control:*
+` +
+            `│ • plogme run <command> — run any command
+` +
+            `│ • plogme toggle <cmd> on|off — toggle a command
+` +
+            `│ • plogme toggled — list toggled-off commands
+` +
+            `│ • plogme fix <code> — fix code with AI
+` +
+            `│ • plogme test <code|file> — syntax test
+` +
+            `│ • plogme add command <name>: <code>
+` +
+            `│ • plogme delete command <name>
+` +
+            `│ • plogme reload — reload all commands
+` +
+            `│ • plogme restart — restart the bot
+` +
+            `│ • plogme dev on|off — developer mode
+` +
+            `╰──────────────────`;
+
         switch (sub) {
             case 'on': {
                 if (rest === 'all') {
@@ -96,41 +164,17 @@ module.exports = {
                 return reply(plogme.removeFact(idx - 1) ? '_*🗑️ Fact forgotten*_' : '_✘ Invalid fact number_');
             }
             case 'help':
-            default:
-                return reply(
-                    `╭─❍ *PLOGME* 𓉤\n│\n` +
-                    `│ 🧠 Internal processing AI — auto-reply chatbot + smart bot control.\n` +
-                    `│ ✨ Just talk to me — I understand context:\n` +
-                    `│   • "run the menu command" / "can you ping?"\n` +
-                    `│   • "create a command called hi that replies hello"\n` +
-                    `│   • "edit the ping command to say pong"\n` +
-                    `│   • "delete the command hello" / "write me a plugin"\n` +
-                    `│   • "set my profile picture to this" (quote image)\n` +
-                    `│   • "kick this user" / "promote this user" / "mute this user 5m"\n` +
-                    `│   • "turn on all the antis" / "set mutesch 5pm to 10am daily"\n` +
-                    `│   • "rename the group" / "change the group pp" (quote image)\n` +
-                    `│   I return .js files, fix and test them myself.\n│\n` +
-                    `│ *Chatbot:*\n` +
-                    `│ • .plogme on / off (this chat)\n` +
-                    `│ • .plogme on all / off all (global DM)\n` +
-                    `│ • .plogme mode all | tag\n` +
-                    `│ • .plogme train <text> (global)\n` +
-                    `│ • .plogme personality <text> (global)\n` +
-                    `│ • .plogme status | memory | clear\n` +
-                    `│ • .plogme remember <fact> | forget <n>\n│\n` +
-                    `│ *Owner / sudo / dual — bot control:*\n` +
-                    `│ • plogme run <command> — run any command\n` +
-                    `│ • plogme toggle <cmd> on|off — toggle a command\n` +
-                    `│ • plogme toggled — list toggled-off commands\n` +
-                    `│ • plogme fix <code> — fix code with AI\n` +
-                    `│ • plogme test <code|file> — syntax test\n` +
-                    `│ • plogme add command <name>: <code>\n` +
-                    `│ • plogme delete command <name>\n` +
-                    `│ • plogme reload — reload all commands\n` +
-                    `│ • plogme restart — restart the bot\n` +
-                    `│ • plogme dev on|off — developer mode\n` +
-                    `╰──────────────────`
-                );
+                return reply(helpText);
+            default: {
+                // Control intents the hook understands but that aren't first-class
+                // subcommands here ("plogme run ping", "plogme toggle balance off",
+                // "plogme fix <code>", ...) are forwarded to the core handler so the
+                // ROUTER owns them and the hook never double-runs them.
+                // (@crysnovax—FIX12-08-26)
+                const restText = args.join(' ').trim();
+                if (restText && await plogme.handleControlIntent(sock, m, { reply }, 'plogme ' + restText)) return;
+                return reply(helpText);
+            }
         }
     }
 };

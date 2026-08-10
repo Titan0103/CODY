@@ -1,35 +1,64 @@
 const axios = require('axios');
 const config = require('../../../settings/config');
-const { resolvePhoneJid } = require('../../Plugin/identityUtils');
+const { resolvePhoneJid, resolvePhoneJidWithMetadata } = require('../../Plugin/identityUtils');
 const ECO_API = process.env.ECO_API_URL || config.api?.economy || 'https://econ.crysnovax.link';
 
+const num = (v) => Number(v || 0).toLocaleString();
+
+function ecoErr(err, fallback = 'Failed') {
+    return err.response?.data?.error || err.message || fallback;
+}
+
+// Every call is retried once on network-level failures and always logs a
+// diagnostic line ([ECON] endpoint phone → reason base) so a "✘ Failed" can
+// actually be traced. The API is keyed by phone number — the header must
+// always be digits. (@crysnovax—FIX12-08-26)
 async function eco(endpoint, phone, body = {}) {
     const method = endpoint.startsWith('GET') ? 'get' : 'post';
     const url = ECO_API + endpoint.replace(/^(GET|POST) /, '');
-    const options = { headers: { 'X-User-Phone': phone }, timeout: 15000 };
-    if (method === 'post') {
-        const res = await axios.post(url, body, options);
-        return res;
+    const safePhone = String(phone || '').replace(/[^0-9]/g, '');
+    if (!safePhone) throw new Error('Could not resolve the sender\'s phone number');
+    const call = () => (method === 'post'
+        ? axios.post(url, body, { headers: { 'X-User-Phone': safePhone }, timeout: 12000 })
+        : axios.get(url, { headers: { 'X-User-Phone': safePhone }, timeout: 12000 }));
+    try {
+        return await call();
+    } catch (err) {
+        if (!err.response) {
+            try { return await call(); } catch {}
+        }
+        console.error(`[ECON] ${endpoint.replace(/^(GET|POST) /, '')} phone=${safePhone} → ${err.response?.status || err.code || err.message} (base: ${ECO_API})`);
+        throw err;
     }
-    return axios.get(url, options);
 }
 
 async function sendTable(sock, chat, header, title, rows, footer) {
-    await sock.sendMessage(chat, {
-        headerText: header,
-        contentText: '---',
-        title: title,
-        table: rows,
-        footerText: footer
-    });
+    try {
+        await sock.sendMessage(chat, {
+            headerText: header,
+            contentText: '---',
+            title: title,
+            table: rows,
+            footerText: footer
+        });
+    } catch (err) {
+        // If this Baileys build rejects the table protocol, render a plain
+        // card instead — the command must never die on formatting.
+        // (@crysnovax—FIX12-08-26)
+        const lines = [`${header}\n\n*${title}*`];
+        for (const [k, v] of rows || []) lines.push(`• ${k}: ${v}`);
+        if (footer) lines.push(`\n${footer}`);
+        await sock.sendMessage(chat, { text: lines.join('\n') });
+    }
 }
 
 // Resolve the sender's REAL WhatsApp phone number (digits only). In this
 // Baileys fork m.sender can be a @lid jid — the economy API is keyed by
 // phone number, so passing raw LID digits made every command fail with
 // "user not found" (while curl with the real number worked). Resolve
-// LID → phone exactly like the rest of the bot does.
-// (@crysnovax—FIX12-08-26)
+// LID → phone exactly like the rest of the bot does: metadata first (works
+// for group messages), then the signalRepository lid-mapping, then the
+// raw digits as a last resort. (@crysnovax—FIX12-08-26)
 async function myPhone(sock, m) {
     const jids = [
         m.sender,
@@ -39,13 +68,14 @@ async function myPhone(sock, m) {
         m.msg?.contextInfo?.participant,
     ].filter(Boolean);
     try {
-        const resolved = await resolvePhoneJid(sock, jids);
+        const resolved = (await resolvePhoneJidWithMetadata(sock, m.chat, jids))
+            || (await resolvePhoneJid(sock, jids));
         if (resolved) {
-            const num = resolved.split('@')[0].replace(/[^0-9]/g, '');
-            if (num) return num;
+            const digits = resolved.split('@')[0].replace(/[^0-9]/g, '');
+            if (digits) return digits;
         }
     } catch {}
-    return (m.sender || m.key?.participant || '').split('@')[0].replace(/[^0-9]/g, '');
+    return (m.sender || m.key?.participant || sock.user?.id || '').split('@')[0].replace(/[^0-9]/g, '');
 }
 
 // Check if someone did something TO this bot's owner
@@ -136,7 +166,7 @@ cmds.push({
             if (err.response?.status === 404 || err.response?.data?.error?.includes('not')) {
                 return reply('`✘ Economy not activated! Use .economy activate <phone>`');
             }
-            reply(`\`✘ ${err.response?.data?.error || 'Failed to fetch balance'}\``);
+            reply(`\`✘ ${ecoErr(err, 'Failed to fetch balance')}\``);
         }
     }
 });
@@ -328,30 +358,30 @@ cmds.push({
         const phone = await myPhone(sock, m);
         try {
             const res = await eco('GET /profile', phone);
-            const d = res.data;
+            const d = res.data?.data || res.data || {};
             await sendTable(sock, m.chat,
                 `## 👤 ${phone}'s Profile`,
                 '📊 Economy Stats',
                 [
-                    ['💰 Wallet', `${d.balance.toLocaleString()} coins`],
-                    ['🏦 Bank', `${d.bank.toLocaleString()} coins`],
-                    ['💎 Total', `${d.total.toLocaleString()} coins`],
-                    ['⭐ Level', `Level ${d.level}`],
-                    ['✨ XP', `${d.xp}/${d.xpNeeded} XP`],
+                    ['💰 Wallet', `${num(d.balance)} coins`],
+                    ['🏦 Bank', `${num(d.bank)} coins`],
+                    ['💎 Total', `${num(d.total)} coins`],
+                    ['⭐ Level', `Level ${d.level || 1}`],
+                    ['✨ XP', `${num(d.xp)}/${num(d.xpNeeded)} XP`],
                     ['💪 Strength', d.stats?.strength || 0],
                     ['🍀 Luck', d.stats?.luck || 0],
                     ['🧠 Intelligence', d.stats?.intelligence || 0],
                     ['🎯 Faction', d.faction || 'None'],
                     ['🎒 Items', `${d.inventory || 0} items`],
                     ['📈 Investments', `${d.investments || 0} active`],
-                    ['💳 Loan', d.loan ? `${d.loan.toLocaleString()} coins` : 'None'],
+                    ['💳 Loan', d.loan ? `${num(d.loan)} coins` : 'None'],
                     ['🔥 Daily Streak', `${d.dailyStreak || 0} days`],
                     ['🔔 Alerts', `${d.alerts || 0} unread`]
                 ],
                 '💡 Use .alerts to check notifications!'
             );
         } catch (err) {
-            reply(`\`✘ ${err.response?.data?.error || 'Failed'}\``);
+            reply(`\`✘ ${ecoErr(err)}\``);
         }
     }
 });
@@ -600,7 +630,7 @@ quick.forEach(q => {
                 await sock.sendMessage(m.chat, { react: { text: '✨', key: m.key } });
             } catch (err) {
                 await sock.sendMessage(m.chat, { react: { text: '❔', key: m.key } });
-                reply(`\`✘ ${err.response?.data?.error || 'Failed'}\``);
+                reply(`\`✘ ${ecoErr(err)}\``);
             }
         }
     });
