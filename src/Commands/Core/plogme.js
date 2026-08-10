@@ -789,12 +789,55 @@ async function handleControlIntent(sock, m, opts, text) {
         return true;
     }
 
+    // ── Natural-language file/PDF requests — the AI must DELIVER, not just
+    //    promise. "can you write a little PDF on diet and send to me file.md",
+    //    "make me a pdf about keto", "create a pdf from README.md" all land
+    //    here. If the topic is a real file we convert it; otherwise PLOGME
+    //    writes the content itself with the AI brain and sends the finished
+    //    PDF — so the user gets the file, not a chat promise.
+    //    (@crysnovax—FIX13-08-26)
+    const nlPdfMatch = text.match(
+        /^(?:(?:can you|could you|please|pls|kindly|hey|plogme|i need you to)\s+)?(?:write|make|create|generate|convert|draft|prepare)\s+(?:me\s+|us\s+)?(?:a\s+|an\s+|the\s+)?(?:little|short|small|detailed|quick|simple|basic|full|nice)?\s*(?:pdf|document|doc)(?:\s+(?:on|about|for|of|from|covering|based\s+on)\s+)?(.+?)(?:\s+(?:and|then|also)?\s*(?:send|share|deliver|attach|give)(?:\s+(?:it|this|that|them))?(?:\s+(?:to|as))?(?:\s+(?:me|you|us))?(?:\s+(\S+))?)?$/i
+    );
+    if (nlPdfMatch) {
+        const topic = nlPdfMatch[1].trim();
+        const fileName = nlPdfMatch[2] ? nlPdfMatch[2].trim() : '';
+        let source = '';
+        let baseName = '';
+        // A topic that looks like a file path (separator or extension) resolves
+        // to that file; a bare topic like "diet" is a writing prompt instead.
+        const looksLikePath = /[\\/]/.test(topic) || /\.[a-zA-Z0-9]{1,5}$/.test(topic);
+        const resolved = looksLikePath ? resolveReadPath(topic) : null;
+        if (resolved && fs.existsSync(resolved.abs)) {
+            try { source = fs.readFileSync(resolved.abs, 'utf8'); baseName = path.basename(resolved.abs).replace(/\.[^.]+$/, ''); } catch {}
+        }
+        if (!source.trim()) {
+            await opts.reply('_*📝 Writing your PDF — one moment...*_');
+            const md = await askAI(
+                'Write a well-structured, informative markdown document about "' + topic + '". ' +
+                'Use # and ## headings, bullet lists and short paragraphs. Return ONLY the markdown content, nothing else.'
+            );
+            if (md && md.trim()) source = md;
+        }
+        if (!source.trim()) { await opts.reply('_✘ Could not generate content for that PDF_'); return true; }
+        const name = (fileName.replace(/\.[^.]+$/, '') || baseName || topic.replace(/[^a-zA-Z0-9_\-]+/g, '_') || 'document').slice(0, 60);
+        const res = await executeIntent(sock, m, opts, { action: 'make_pdf', content: source, name });
+        if (res.handled) return true;
+    }
+
     // ── File delivery: send a file / make a PDF / zip files ──
     // These run BEFORE the lenient command matcher so "send X" can never be
     // misread as the .send (pay) economy command. (@crysnovax—FIX12-08-26)
     const sendMatch = text.match(/^(?:plogme\s+)?(?:send|attach|share)\s+(?:me\s+|the\s+|this\s+|that\s+)*(?:file\s+)?(.+)$/i);
     if (sendMatch && sendMatch[1] && !/^(on|off|all)$/i.test(sendMatch[1].trim())) {
-        const res = await executeIntent(sock, m, opts, { action: 'send_file', path: sendMatch[1].trim() });
+        const want = sendMatch[1].trim();
+        // "send me a pdf of X" → generate & send a PDF of that file/topic
+        const wantPdf = /^(?:a\s+|an\s+|the\s+)?pdf\s+(?:of|from|for|on)\s+(.+)$/i.exec(want);
+        if (wantPdf) {
+            const res = await executeIntent(sock, m, opts, { action: 'make_pdf', path: wantPdf[1].trim() });
+            if (res.handled) return true;
+        }
+        const res = await executeIntent(sock, m, opts, { action: 'send_file', path: want });
         if (res.handled) return true;
     }
     const pdfMatch = text.match(/^(?:plogme\s+)?(?:make|generate|convert|create)\s+(?:me\s+|a\s+|an\s+)?pdf(?:\s+(?:from|of|for)\s+(.+))?$/i);
@@ -895,7 +938,7 @@ function buildClassifierPrompt(userText) {
         `- "turn on/off all the antis / protections / security" -> {"action":"antis","state":"on"}\n` +
         `- "set plogme mode to all/tag" -> {"action":"plogme_mode","mode":"all"}\n` +
         `- "send/attach/share the file X" / "send me the pdf" / "send the file" -> {"action":"send_file","path":"<path>"}\n` +
-        `- "make/generate/create a PDF from X" / "convert X to pdf" -> {"action":"make_pdf","path":"<path>"} (or "content":"<text>" for pasted text)\n` +
+        `- "make/generate/create a PDF from X" / "convert X to pdf" / "write a pdf about/on X" -> {"action":"make_pdf","path":"<path or topic>"} (or "content":"<text>" for pasted text)\n` +
         `- "zip/compress these files" -> {"action":"zip","files":["<path1>","<path2>"]}\n` +
         `(for user actions the target comes from the @mention or the quoted message, so "mentioned" is the right value)\n\n` +
         `Possible actions: run_command, create_file, edit_file, delete_file, toggle_command, ` +

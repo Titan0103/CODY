@@ -51,12 +51,21 @@ async function eco(endpoint, phone, body = {}) {
 }
 
 async function sendTable(sock, chat, header, title, rows, footer) {
+    // Coerce every cell to a string: the native WhatsApp table protocol
+    // rejects non-string cells, which silently fell back to the bullet card
+    // for commands like .ecoprofile that pass plain numbers (0 for unused
+    // stats). Stringifying them keeps the native table for every command.
+    // (@crysnovax—FIX13-08-26)
+    const table = (rows || []).map(r => {
+        const cells = Array.isArray(r) ? r : Object.values(r);
+        return cells.map(c => String(c ?? ''));
+    });
     try {
         await sock.sendMessage(chat, {
             headerText: header,
             contentText: '---',
             title: title,
-            table: rows,
+            table,
             footerText: footer
         });
     } catch (err) {
@@ -64,7 +73,10 @@ async function sendTable(sock, chat, header, title, rows, footer) {
         // card instead — the command must never die on formatting.
         // (@crysnovax—FIX12-08-26)
         const lines = [`${header}\n\n*${title}*`];
-        for (const [k, v] of rows || []) lines.push(`• ${k}: ${v}`);
+        for (const row of rows || []) {
+            const cells = Array.isArray(row) ? row : Object.values(row);
+            lines.push(`• ${cells[0]}: ${cells[1] ?? ''}`);
+        }
         if (footer) lines.push(`\n${footer}`);
         await sock.sendMessage(chat, { text: lines.join('\n') });
     }
