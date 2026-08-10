@@ -172,7 +172,10 @@ module.exports = {
                 // ROUTER owns them and the hook never double-runs them.
                 // (@crysnovax—FIX12-08-26)
                 const restText = args.join(' ').trim();
-                if (restText && await plogme.handleControlIntent(sock, m, { reply }, 'plogme ' + restText)) return;
+                if (restText && await plogme.handleControlIntent(sock, m, {
+                    reply,
+                    sendMessage: async (jid, content, opts) => { try { await sock.sendMessage(jid, content, opts); } catch (e) {} }
+                }, 'plogme ' + restText)) return;
                 return reply(helpText);
             }
         }
