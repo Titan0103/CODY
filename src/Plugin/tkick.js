@@ -93,10 +93,31 @@ async function reAdd(sock, group, user) {
         if (!meta?.participants) return false;
 
         const digits = (j = '') => String(j || '').replace(/:\d+@/g, '@').split('@')[0].replace(/\D/g, '');
-        const userDigits = digits(jid);
-        if (!userDigits) return false;
+        const { identityVariants, normalizeJid } = require('./identityUtils');
 
-        return meta.participants.some(p => digits(p.id) === userDigits);
+        // The re-added user can appear in group metadata as their PHONE jid
+        // OR their @lid jid (LID digits ≠ phone digits, so a plain digit
+        // comparison used to miss them and we'd send the invite fallback even
+        // though the add had succeeded). Build the set of every digit variant
+        // we know for the user (phone + lid) and match each participant
+        // against it, resolving their lid→phone too. (@crysnovax—FIX12-08-26)
+        const userDigitsSet = new Set([digits(jid)]);
+        try {
+            for (const v of await identityVariants(sock, jid)) userDigitsSet.add(digits(v));
+        } catch {}
+
+        for (const p of meta.participants) {
+            const ids = [p.id, p.lid, p.jid].filter(Boolean).map(normalizeJid);
+            for (const id of ids) {
+                if (userDigitsSet.has(digits(id))) return true;
+                try {
+                    for (const v of await identityVariants(sock, id)) {
+                        if (userDigitsSet.has(digits(v))) return true;
+                    }
+                } catch {}
+            }
+        }
+        return false;
     } catch (err) {
         console.error('[TKICK] re-add failed:', err.message);
         return false;
