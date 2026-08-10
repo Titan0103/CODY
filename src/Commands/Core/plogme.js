@@ -33,6 +33,144 @@ const DATA_DIR = path.join(process.cwd(), 'database');
 const USER_CMD_DIR = path.join(__dirname, '../Commands/User');
 const ROOT = process.cwd();
 
+// Generated files (PDFs / zips) land here so "send me the pdf" can find them.
+// (@crysnovax—FIX12-08-26)
+const OUT_DIR = path.join(DATA_DIR, 'plogme_output');
+
+// Refusal phrases that must never stand as a final answer. When the chat
+// brain produces one we re-ask once with a hard nudge, so "I can't do this /
+// I can't do that" turns into action. (@crysnovax—FIX12-08-26)
+const REFUSAL_RE = /(i can['’]?t (do|send|create|make|run|open|access|generate|attach)|i cannot (do|send|create|make|run|open|access|generate|attach)|i['’]?m (sorry|unable)|i am (sorry|unable)|unfortunately i can['’]?t|cannot do that|can['’]?t do that)/i;
+
+// Resolve a READABLE path inside the project for send_file / make_pdf / zip.
+// Exact paths win; otherwise a fuzzy basename match (so "send the pdf" finds
+// the latest generated file). Never leaves the project root.
+// (@crysnovax—FIX12-08-26)
+function resolveReadPath(raw) {
+    try {
+        let p = String(raw || '').trim();
+        if (!p) return null;
+        p = p.replace(/^\.?\//, '');
+        const abs = path.resolve(ROOT, p);
+        if (abs !== ROOT && !abs.startsWith(ROOT + path.sep)) return null;
+        if (FORBIDDEN_DIRS.test(path.relative(ROOT, abs))) return null;
+        if (fs.existsSync(abs)) return { abs, display: path.relative(ROOT, abs) };
+        // fuzzy basename match (case-insensitive, extension-agnostic)
+        const wanted = path.basename(p).toLowerCase().replace(/\.[a-z0-9]+$/, '');
+        const scanDirs = [OUT_DIR, path.join(ROOT, 'database'), ROOT];
+        for (const dir of scanDirs) {
+            if (!fs.existsSync(dir)) continue;
+            const files = [];
+            const walk = (d, depth) => {
+                if (depth > 3) return;
+                let entries = [];
+                try { entries = fs.readdirSync(d, { withFileTypes: true }); } catch { return; }
+                for (const e of entries) {
+                    if (e.name.startsWith('.')) continue;
+                    const full = path.join(d, e.name);
+                    if (e.isDirectory()) {
+                        if (e.name === 'node_modules' || e.name === '.git' || e.name === 'sessions') continue;
+                        walk(full, depth + 1);
+                    } else files.push(full);
+                }
+            };
+            walk(dir, 0);
+            const hit = files.find(f => {
+                const b = path.basename(f).toLowerCase().replace(/\.[a-z0-9]+$/, '');
+                return b === wanted || b.includes(wanted) || wanted.includes(b);
+            });
+            if (hit) return { abs: hit, display: path.relative(ROOT, hit) };
+        }
+        // "send me the pdf / the file" → newest generated file
+        if (/^(pdf|file|doc|zip|document)$/i.test(wanted) && fs.existsSync(OUT_DIR)) {
+            const newest = fs.readdirSync(OUT_DIR)
+                .filter(f => !f.startsWith('.'))
+                .map(f => ({ f, t: fs.statSync(path.join(OUT_DIR, f)).mtimeMs }))
+                .sort((a, b) => b.t - a.t)[0];
+            if (newest) return { abs: path.join(OUT_DIR, newest.f), display: path.relative(ROOT, path.join(OUT_DIR, newest.f)) };
+        }
+        return null;
+    } catch { return null; }
+}
+
+// Render markdown/text to a PDF buffer with pdfkit (already a dependency —
+// required lazily so a missing optional dep can never break bot startup).
+// (@crysnovax—FIX12-08-26)
+function markdownToPdf(md) {
+    return new Promise((resolve, reject) => {
+        let PDFDocument;
+        try { PDFDocument = require('pdfkit'); } catch { return reject(new Error('pdfkit is not installed')); }
+        const doc = new PDFDocument({ size: 'A4', margin: 48 });
+        const chunks = [];
+        doc.on('data', c => chunks.push(c));
+        doc.on('end', () => resolve(Buffer.concat(chunks)));
+        doc.on('error', reject);
+        let inCode = false;
+        let first = true;
+        for (const rawLine of String(md || '').split(/\r?\n/)) {
+            const trimmed = rawLine.trim();
+            if (/^```/.test(trimmed)) { inCode = !inCode; continue; }
+            if (inCode) {
+                doc.font('Courier').fontSize(9).fillColor('#333333').text(rawLine || ' ', { lineGap: 1 });
+                continue;
+            }
+            const heading = trimmed.match(/^(#{1,6})\s+(.*)$/);
+            if (heading) {
+                const level = heading[1].length;
+                doc.moveDown(first ? 0 : 0.7);
+                doc.font('Helvetica-Bold').fontSize(level === 1 ? 20 : level === 2 ? 16 : 13)
+                    .fillColor('#111111').text(heading[2]);
+                first = false;
+                continue;
+            }
+            if (/^\s*[-*]\s+/.test(trimmed) || /^\s*\d+\.\s+/.test(trimmed)) {
+                doc.font('Helvetica').fontSize(10.5).fillColor('#222222')
+                    .text(trimmed.replace(/^\s*[-*]\s+/, '•  ').replace(/^\s*\d+\.\s+/, m => m.trim() + '  '), { lineGap: 2 });
+                first = false;
+                continue;
+            }
+            if (!trimmed) { doc.moveDown(0.4); first = false; continue; }
+            const clean = trimmed
+                .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+                .replace(/\*\*(.+?)\*\*/g, '$1')
+                .replace(/(^|\s)\*([^*]+)\*/g, '$1$2')
+                .replace(/`([^`]+)`/g, '$1')
+                .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+            doc.font('Helvetica').fontSize(10.5).fillColor('#222222').text(clean, { lineGap: 2 });
+            first = false;
+        }
+        doc.end();
+    });
+}
+
+// True when the message explicitly addresses the bot: it @-mentions the bot,
+// QUOTES one of the bot's own replies (every bot reply carries MARKER), or
+// calls it by name. Bare chat — including bare no-prefix commands like "ping"
+// — is NOT "addressed", so PLOGME never answers on top of the router's reply.
+// (@crysnovax—FIX12-08-26)
+function isAddressed(sock, m) {
+    try {
+        const mentioned = (m.mentionedJid || []).map(j => String(j).replace(/:\d+@/, '@'));
+        const botJid = String(sock?.user?.id || '').replace(/:\d+@/, '@');
+        const lid = sock?.user?.lid || '';
+        if (mentioned.some(j => j === botJid || (lid && j === String(lid).replace(/:\d+@/, '@')))) return true;
+        const quotedText = String(
+            m?.quoted?.text
+            || m?.quoted?.message?.extendedTextMessage?.text
+            || m?.quoted?.message?.conversation
+            || ''
+        );
+        if (quotedText && quotedText.includes(MARKER)) return true;
+        const qSender = m?.quoted?.sender || m?.quoted?.key?.participant;
+        if (qSender) {
+            const qs = String(qSender).replace(/:\d+@/, '@');
+            if (qs === botJid || (lid && qs === String(lid).replace(/:\d+@/, '@'))) return true;
+        }
+        return false;
+    } catch { return false; }
+}
+
+
 const FILES = {
     toggle:     path.join(DATA_DIR, 'plogme_toggle.json'),
     mode:       path.join(DATA_DIR, 'plogme_mode.json'),
@@ -54,7 +192,8 @@ const DEFAULT_PERSONALITY =
     'and files, reload or restart the bot, test things, and developer mode. Keep replies short, sharp ' +
     'and friendly. You are alive inside the bot and are the smarter, always-on version of the chatbot. ' +
     'You are the CONTROL BRAIN: never say you cannot do something — solve it, run the right command, ' +
-    'or ask one short clarifying question.';
+    'or ask one short clarifying question. You can send files and documents, generate PDFs from text, '
+    'create zip archives, run any command, and create or edit files yourself — never refuse a task, always take action.';
 
 const MAX_MEMORY = 60;
 const PREXZY = 'https://prexzyapis.com';
@@ -650,6 +789,25 @@ async function handleControlIntent(sock, m, opts, text) {
         return true;
     }
 
+    // ── File delivery: send a file / make a PDF / zip files ──
+    // These run BEFORE the lenient command matcher so "send X" can never be
+    // misread as the .send (pay) economy command. (@crysnovax—FIX12-08-26)
+    const sendMatch = text.match(/^(?:plogme\s+)?(?:send|attach|share)\s+(?:me\s+|the\s+|this\s+|that\s+)*(?:file\s+)?(.+)$/i);
+    if (sendMatch && sendMatch[1] && !/^(on|off|all)$/i.test(sendMatch[1].trim())) {
+        const res = await executeIntent(sock, m, opts, { action: 'send_file', path: sendMatch[1].trim() });
+        if (res.handled) return true;
+    }
+    const pdfMatch = text.match(/^(?:plogme\s+)?(?:make|generate|convert|create)\s+(?:me\s+|a\s+|an\s+)?pdf(?:\s+(?:from|of|for)\s+(.+))?$/i);
+    if (pdfMatch) {
+        const res = await executeIntent(sock, m, opts, { action: 'make_pdf', path: (pdfMatch[1] || '').trim() || undefined });
+        if (res.handled) return true;
+    }
+    const zipMatch = text.match(/^(?:plogme\s+)?zip\s+(.+)$/i);
+    if (zipMatch) {
+        const res = await executeIntent(sock, m, opts, { action: 'zip', files: zipMatch[1].split(/\s+/).filter(Boolean) });
+        if (res.handled) return true;
+    }
+
     // ── Lenient command intent: a plain query that basically asks for a
     //    command should just run it — "ping", "run ping", "can you ping",
     //    "check uptime", "menu". PLOGME's own names are excluded so a bare
@@ -688,6 +846,8 @@ const KNOWN_ACTIONS = new Set([
     // run a made-up .cm internally.
     'set_pp', 'group_pp', 'group_name', 'kick', 'promote', 'demote',
     'mute_user', 'unmute_user', 'mutesch', 'antis', 'plogme_mode',
+    // FIX12-08-26: file delivery — send files, generate PDFs, zip archives
+    'send_file', 'make_pdf', 'zip',
 ]);
 
 // Strip markdown fences / extra text and pull out the first JSON object.
@@ -708,7 +868,8 @@ function buildClassifierPrompt(userText) {
     const realCommands = commandNameList();
     return `You are PLOGME, the command brain inside a WhatsApp bot. The owner just sent a message. ` +
         `Decide what they want and reply with ONLY one JSON object — no markdown, no explanation. ` +
-        `You are the bot's CONTROL BRAIN — you can run any command or task the bot can do. ` +
+        `You are the bot's CONTROL BRAIN — you can run any command, send files, generate PDFs, zip archives, ` +
+        `and do any task the bot can do. ` +
         `NEVER refuse and never say you cannot do something; if a request is unclear, ask one short question. ` +
         `If the request is casual chat, use action "chat" with a friendly short reply. ` +
         `If they ask to run/execute/open/check/show a bot command — even inside a normal sentence — use ` +
@@ -733,11 +894,14 @@ function buildClassifierPrompt(userText) {
         `- "schedule a mute / set mutesch 5pm to 10am daily" -> {"action":"mutesch","start":"5pm","end":"10am","repeat":"daily"}\n` +
         `- "turn on/off all the antis / protections / security" -> {"action":"antis","state":"on"}\n` +
         `- "set plogme mode to all/tag" -> {"action":"plogme_mode","mode":"all"}\n` +
+        `- "send/attach/share the file X" / "send me the pdf" / "send the file" -> {"action":"send_file","path":"<path>"}\n` +
+        `- "make/generate/create a PDF from X" / "convert X to pdf" -> {"action":"make_pdf","path":"<path>"} (or "content":"<text>" for pasted text)\n` +
+        `- "zip/compress these files" -> {"action":"zip","files":["<path1>","<path2>"]}\n` +
         `(for user actions the target comes from the @mention or the quoted message, so "mentioned" is the right value)\n\n` +
         `Possible actions: run_command, create_file, edit_file, delete_file, toggle_command, ` +
         `list_commands, reload, restart, status, memory, clear_memory, remember, forget, ` +
         `test, fix_code, train, personality, dev, set_pp, group_name, group_pp, kick, promote, ` +
-        `demote, mute_user, unmute_user, mutesch, antis, plogme_mode, chat.\n\n` +
+        `demote, mute_user, unmute_user, mutesch, antis, plogme_mode, send_file, make_pdf, zip, chat.\n\n` +
         `JSON shapes:\n` +
         `- {"action":"run_command","command":"<name>","args":"<optional>"}\n` +
         `- {"action":"create_file","path":"src/Commands/User/name.js","content":"<FULL file content>"}\n` +
@@ -755,6 +919,7 @@ function buildClassifierPrompt(userText) {
         `- {"action":"kick|promote|demote|mute_user|unmute_user","user":"mentioned","duration":"<optional 5m>","reason":"<optional>"}\n` +
         `- {"action":"mutesch","start":"5pm","end":"10am","repeat":"daily|once"}\n` +
         `- {"action":"antis","state":"on|off"} {"action":"plogme_mode","mode":"all|tag"}\n` +
+        `- {"action":"send_file","path":"<path>"} {"action":"make_pdf","path":"<path>"|"content":"<text>"} {"action":"zip","files":["<path1>"]}\n` +
         `- {"action":"chat","reply":"<your short reply>"}\n\n` +
         `Available commands (ONLY use these exact names for run_command):\n` +
         (realCommands.length ? realCommands.slice(0, 160).join(', ') : '(command list unavailable)') +
@@ -1115,6 +1280,88 @@ async function executeIntent(sock, m, opts, intent) {
                 return { handled: true };
             }
 
+            case 'send_file': {
+                const resolved = resolveReadPath(intent.path || intent.file || intent.fileName || intent.name || '');
+                if (!resolved) { await opts.reply('_✘ Invalid or blocked file path_'); return { handled: true }; }
+                if (!fs.existsSync(resolved.abs)) { await opts.reply(`_✘ \`${resolved.display}\` not found_`); return { handled: true }; }
+                let buffer;
+                try { buffer = fs.readFileSync(resolved.abs); } catch (err) { await opts.reply(`_✘ Could not read \`${resolved.display}\`:_ ${err.message}`); return { handled: true }; }
+                let mime = 'application/octet-stream';
+                try { mime = require('mime-types').lookup(resolved.abs) || mime; } catch {}
+                try {
+                    await opts.sendMessage(m.chat, {
+                        document: buffer,
+                        mimetype: mime,
+                        fileName: path.basename(resolved.abs)
+                    }, { quoted: m });
+                } catch (err) {
+                    await opts.reply(`_✘ Failed to send file:_ ${err.message}`);
+                    return { handled: true };
+                }
+                logOp('send', `sent file ${resolved.display}`);
+                await opts.reply(`_*📄 File sent:*_ \`${resolved.display}\``);
+                return { handled: true };
+            }
+
+            case 'make_pdf': {
+                let source = String(intent.content || '').trim();
+                const srcPath = String(intent.path || intent.source || intent.file || '').trim();
+                let baseName = 'document';
+                if (!source && srcPath) {
+                    const resolved = resolveReadPath(srcPath);
+                    if (resolved && fs.existsSync(resolved.abs)) {
+                        source = fs.readFileSync(resolved.abs, 'utf8');
+                        baseName = path.basename(resolved.abs).replace(/\.[^.]+$/, '');
+                    } else {
+                        await opts.reply(`_✘ \`${srcPath}\` not found_`);
+                        return { handled: true };
+                    }
+                }
+                if (!source.trim()) { await opts.reply('_✘ Nothing to convert — tell me which file or paste the text_'); return { handled: true }; }
+                let pdf;
+                try { pdf = await markdownToPdf(source); } catch (err) { await opts.reply(`_✘ PDF generation failed:_ ${err.message}`); return { handled: true }; }
+                const outName = (baseName.replace(/[^a-zA-Z0-9_\-]/g, '_') || 'document') + '.pdf';
+                try {
+                    fs.mkdirSync(OUT_DIR, { recursive: true });
+                    fs.writeFileSync(path.join(OUT_DIR, outName), pdf);
+                    await opts.sendMessage(m.chat, { document: pdf, mimetype: 'application/pdf', fileName: outName }, { quoted: m });
+                } catch (err) {
+                    await opts.reply(`_✘ Failed to send PDF:_ ${err.message}`);
+                    return { handled: true };
+                }
+                logOp('make_pdf', outName);
+                await opts.reply(`_*📄 PDF sent:*_ \`${outName}\` (${Math.max(1, Math.round(pdf.length / 1024))} KB)`);
+                return { handled: true };
+            }
+
+            case 'zip': {
+                const rawTargets = Array.isArray(intent.files) ? intent.files : [intent.path || intent.file || intent.files].filter(Boolean);
+                const targets = rawTargets.filter(Boolean).map(resolveReadPath).filter(Boolean);
+                if (!targets.length) { await opts.reply('_✘ No valid files to zip_'); return { handled: true }; }
+                let AdmZip;
+                try { AdmZip = require('adm-zip'); } catch { await opts.reply('_✘ adm-zip is not installed_'); return { handled: true }; }
+                const zip = new AdmZip();
+                for (const t of targets) {
+                    try {
+                        if (fs.statSync(t.abs).isDirectory()) zip.addLocalFolder(t.abs, t.display);
+                        else zip.addLocalFile(t.abs, undefined, t.display);
+                    } catch {}
+                }
+                const outName = `files-${Date.now().toString(36)}.zip`;
+                try {
+                    fs.mkdirSync(OUT_DIR, { recursive: true });
+                    const buf = zip.toBuffer();
+                    fs.writeFileSync(path.join(OUT_DIR, outName), buf);
+                    await opts.sendMessage(m.chat, { document: buf, mimetype: 'application/zip', fileName: outName }, { quoted: m });
+                } catch (err) {
+                    await opts.reply(`_✘ Failed to send zip:_ ${err.message}`);
+                    return { handled: true };
+                }
+                logOp('zip', outName);
+                await opts.reply(`_*🗜️ Zip sent:*_ \`${outName}\``);
+                return { handled: true };
+            }
+
             case 'chat': {
                 if (String(intent.reply || '').trim()) await opts.reply(String(intent.reply).trim());
                 return { handled: true };
@@ -1177,21 +1424,17 @@ async function execute(sock, m, opts) {
 
         const privileged = await isPrivileged(sock, m);
 
-        // ── MODE BOUNDARY (tag vs all) — observed for EVERYONE, including
-        //    the owner/sudo. In a group with "tag" mode, PLOGME only engages
-        //    when it is actually addressed: @-mentioned, or called by name
-        //    ("plogme ..."). Untagged casual chat is ignored so tag mode
-        //    NEVER behaves like "all" mode. (@crysnovax—FIX11-08-26)
-        const mode = getMode(m.chat);
-        if (m.isGroup && mode === 'tag') {
-            const mentioned = (m.mentionedJid || []).map(j => String(j).replace(/:\d+@/, '@'));
-            const botJid = String(sock.user?.id || '').replace(/:\d+@/, '@');
-            const lid = sock.user?.lid || '';
-            const isTagged = mentioned.some(j => j === botJid || (lid && j === String(lid).replace(/:\d+@/, '@')));
-            const body = isCommand ? text.slice(prefix.length).trim() : text;
-            const isNamed = /^(plogme|plg|plog)(\s|$)/i.test(body);
-            if (!isTagged && !(privileged && isNamed)) return false;
-        }
+        // ── ENGAGEMENT BOUNDARY — PLOGME only engages when it is explicitly
+        //    addressed: (1) the message QUOTES one of PLOGME's own replies,
+        //    (2) PLOGME is @-mentioned, or (3) the message calls it by name
+        //    ("plogme ..."). A bare no-prefix command like "ping" therefore
+        //    runs EXACTLY ONCE via the router and PLOGME never answers on top
+        //    of it. This applies in every chat (group + DM); setting "mode
+        //    all" opts back into broad engagement. (@crysnovax—FIX12-08-26)
+        const body = isCommand ? text.slice(prefix.length).trim() : text;
+        const isNamed = /^(plogme|plg|plog)(\s|$)/i.test(body);
+        const engaged = getMode(m.chat) === 'all' || isNamed || isAddressed(sock, m);
+        if (!engaged) return false;
 
         // An EXPLICIT ".plogme off" in a chat means SILENT — no free-form AI
         // chat. Explicit control ("plogme on", "plogme status", "plogme run
@@ -1274,8 +1517,16 @@ async function execute(sock, m, opts) {
 
         addToMemory(m.chat, 'user', text);
         const prompt = buildPrompt(m.chat, text);
-        const answer = await askAI(prompt);
+        let answer = await askAI(prompt);
         if (!answer) return true; // consumed, but AI unavailable
+
+        // Never let a refusal be the final answer — re-ask once with a hard
+        // nudge so "I can't do this / I can't do that" turns into action.
+        // (@crysnovax—FIX12-08-26)
+        if (REFUSAL_RE.test(answer)) {
+            const retry = await askAI(prompt + '\n\nIMPORTANT: Do NOT refuse. You can send files, generate PDFs, run commands and edit files yourself. Take action now — do it.');
+            if (retry && !REFUSAL_RE.test(retry)) answer = retry;
+        }
 
         addToMemory(m.chat, 'assistant', answer);
         await opts.reply(answer);
@@ -1318,6 +1569,7 @@ module.exports = {
     parseIntentJson,
     executeIntent,
     handleControlIntent,
+    isAddressed,
     resolveWritePath,
     ensureCommandModule,
     writeFileWithAgentFix,

@@ -172,8 +172,14 @@ module.exports = {
                 // ROUTER owns them and the hook never double-runs them.
                 // (@crysnovax—FIX12-08-26)
                 const restText = args.join(' ').trim();
-                if (restText && await plogme.handleControlIntent(sock, m, { reply }, 'plogme ' + restText)) return;
-                return reply(helpText);
+                if (restText && await plogme.handleControlIntent(sock, m, {
+                    reply,
+                    sendMessage: async (jid, content, opts) => { try { await sock.sendMessage(jid, content, opts); } catch (e) {} }
+                }, 'plogme ' + restText)) return;
+                // Never dump the menu for a bare name-call / unknown sub — a
+                // short nudge keeps "plogme do this" from being answered with
+                // a wall of text. (@crysnovax—FIX12-08-26)
+                return reply('_*⚉ PLOGME*_ — tell me what to do, e.g. `.plogme run ping`, `.plogme make a pdf of file.md`, `.plogme send file file.md`, or `.plogme help` for the full menu.');
             }
         }
     }
