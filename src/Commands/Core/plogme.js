@@ -93,6 +93,59 @@ function resolveReadPath(raw) {
     } catch { return null; }
 }
 
+// Newest file PLOGME recently created — used when the owner says "send as a
+// js file" right after a creation. (@crysnovax—FIX14-08-26)
+function findNewestCommandFile() {
+    const dirs = [USER_CMD_DIR, OUT_DIR];
+    let best = null;
+    for (const dir of dirs) {
+        if (!fs.existsSync(dir)) continue;
+        try {
+            for (const f of fs.readdirSync(dir)) {
+                if (f.startsWith('.')) continue;
+                const full = path.join(dir, f);
+                const st = fs.statSync(full);
+                if (!st.isFile()) continue;
+                if (!best || st.mtimeMs > best.mtime) best = { abs: full, mtime: st.mtimeMs };
+            }
+        } catch {}
+    }
+    if (!best) return null;
+    if (Date.now() - best.mtime > 10 * 60 * 1000) return null;
+    return path.relative(ROOT, best.abs);
+}
+
+// Fuzzy basename lookup across commands/database/output so "send the ping
+// file" resolves even without a full path. (@crysnovax—FIX14-08-26)
+function fuzzyFindFile(raw) {
+    let wanted = String(raw || '').toLowerCase().replace(/^(the|a|an)\s+/, '').replace(/\.[a-z0-9]+$/, '').trim();
+    if (!wanted || wanted.length < 2) return null;
+    const scanDirs = [USER_CMD_DIR, path.join(ROOT, 'src', 'Commands'), path.join(ROOT, 'database'), OUT_DIR];
+    for (const dir of scanDirs) {
+        if (!fs.existsSync(dir)) continue;
+        const files = [];
+        const walk = (d, depth) => {
+            if (depth > 3) return;
+            let entries = [];
+            try { entries = fs.readdirSync(d, { withFileTypes: true }); } catch { return; }
+            for (const e of entries) {
+                if (e.name.startsWith('.')) continue;
+                const full = path.join(d, e.name);
+                if (e.isDirectory()) {
+                    if (e.name !== 'node_modules' && e.name !== '.git' && e.name !== 'sessions') walk(full, depth + 1);
+                } else files.push(full);
+            }
+        };
+        walk(dir, 0);
+        const hit = files.find(f => {
+            const b = path.basename(f).toLowerCase().replace(/\.[a-z0-9]+$/, '');
+            return b === wanted || b.includes(wanted) || wanted.includes(b);
+        });
+        if (hit) return { abs: hit, display: path.relative(ROOT, hit) };
+    }
+    return null;
+}
+
 // Render markdown/text to a PDF buffer with pdfkit (already a dependency —
 // required lazily so a missing optional dep can never break bot startup).
 // (@crysnovax—FIX12-08-26)
@@ -711,6 +764,15 @@ async function handleControlIntent(sock, m, opts, text) {
             const count = loadCommands();
             logOp('create', `command .${name} → ${path.relative(ROOT, file)}`);
             await opts.reply(`_*✅ Command .${name} added → ${path.relative(ROOT, file)}*_\n↻ ${count} commands loaded`);
+            // Attach the actual .js file — the owner wants the file itself.
+            // (@crysnovax—FIX14-08-26)
+            try {
+                await opts.sendMessage(m.chat, {
+                    document: fs.readFileSync(file),
+                    mimetype: 'application/javascript',
+                    fileName: name + '.js'
+                }, { quoted: m });
+            } catch {}
         } else {
             await opts.reply(`_*✘ .${name} saved but has a syntax error:*_\n\`\`\`\n${res.error.slice(0, 1200)}\n\`\`\``);
         }
@@ -812,7 +874,15 @@ async function handleControlIntent(sock, m, opts, text) {
             try { source = fs.readFileSync(resolved.abs, 'utf8'); baseName = path.basename(resolved.abs).replace(/\.[^.]+$/, ''); } catch {}
         }
         if (!source.trim()) {
-            await opts.reply('_*📝 Writing your PDF — one moment...*_');
+            // Let the AI say what it is doing — no hardcoded robotic status.
+            // (@crysnovax—FIX14-08-26)
+            const statusLine = await askAI(
+                'Say ONE short, natural, friendly status message (max 12 words, one line, no quotes, no asterisks, no emoji spam) telling the owner you are now writing/generating a PDF document about "' + String(topic).slice(0, 60) + '". Example tone: "On it — drafting that for you now…"'
+            );
+            const niceStatus = (statusLine && statusLine.trim().length > 3 && statusLine.trim().length < 140)
+                ? statusLine.trim()
+                : ['_On it — writing that document now…_', '_Give me a sec, drafting that for you…_', '_Working on it — your PDF is coming together…_', '_Let me put that together for you…_'][Math.floor(Math.random() * 4)];
+            await opts.reply(niceStatus);
             const md = await askAI(
                 'Write a well-structured, informative markdown document about "' + topic + '". ' +
                 'Use # and ## headings, bullet lists and short paragraphs. Return ONLY the markdown content, nothing else.'
@@ -835,6 +905,19 @@ async function handleControlIntent(sock, m, opts, text) {
         const wantPdf = /^(?:a\s+|an\s+|the\s+)?pdf\s+(?:of|from|for|on)\s+(.+)$/i.exec(want);
         if (wantPdf) {
             const res = await executeIntent(sock, m, opts, { action: 'make_pdf', path: wantPdf[1].trim() });
+            if (res.handled) return true;
+        }
+        // "send X as a js file" / "send the ping file as a py file" → attach
+        // the named file with the right mimetype (@crysnovax—FIX14-08-26)
+        const asFileMatch = /^(.+?)\s+as\s+(?:a\s+|an\s+)?([a-z0-9.]+)\s*(?:file)?$/i.exec(want);
+        if (asFileMatch && !/^(on|off|all)$/i.test(asFileMatch[1].trim())) {
+            const res = await executeIntent(sock, m, opts, { action: 'send_file', path: asFileMatch[1].trim(), asType: asFileMatch[2].trim() });
+            if (res.handled) return true;
+        }
+        // "send as a js file" (no name) → newest created file
+        if (/^as\s+(?:a\s+|an\s+)?[a-z0-9.]+\s*(?:file)?$/i.test(want)) {
+            const asType = want.replace(/^as\s+(?:a\s+|an\s+)?/i, '').replace(/\s*file$/i, '').trim();
+            const res = await executeIntent(sock, m, opts, { action: 'send_file', path: 'last_created', asType });
             if (res.handled) return true;
         }
         const res = await executeIntent(sock, m, opts, { action: 'send_file', path: want });
@@ -909,6 +992,21 @@ function parseIntentJson(raw) {
 
 function buildClassifierPrompt(userText) {
     const realCommands = commandNameList();
+    // Design-from-reference: when the owner asks to create a new command/file
+    // "like/referencing/based on our existing X", attach the real source of X
+    // so the AI mirrors the bot's actual format instead of inventing its own.
+    // (@crysnovax—FIX14-08-26)
+    let refNote = '';
+    const refMatch = /(?:referencing|based on|like|similar to|in the style of|from|copying|mirroring|mimicking)\s+(?:our\s+|the\s+|my\s+)?(?:own\s+|existing\s+)?(?:command\s+|file\s+)?([a-z0-9_.-]+)/i.exec(String(userText || ''));
+    if (refMatch) {
+        const ref = fuzzyFindFile(refMatch[1]);
+        if (ref && fs.existsSync(ref.abs) && ref.abs.endsWith('.js')) {
+            try {
+                const src = fs.readFileSync(ref.abs, 'utf8').slice(0, 3000);
+                refNote = `\n\nREFERENCE FILE (create the new file following this file's exact structure, naming and style):\n\`\`\`js\n${src}\n\`\`\``;
+            } catch {}
+        }
+    }
     return `You are PLOGME, the command brain inside a WhatsApp bot. The owner just sent a message. ` +
         `Decide what they want and reply with ONLY one JSON object — no markdown, no explanation. ` +
         `You are the bot's CONTROL BRAIN — you can run any command, send files, generate PDFs, zip archives, ` +
@@ -966,6 +1064,7 @@ function buildClassifierPrompt(userText) {
         `- {"action":"chat","reply":"<your short reply>"}\n\n` +
         `Available commands (ONLY use these exact names for run_command):\n` +
         (realCommands.length ? realCommands.slice(0, 160).join(', ') : '(command list unavailable)') +
+        refNote +
         `\n\nOwner message: "${String(userText || '').slice(0, 2000)}"`;
 }
 
@@ -1016,6 +1115,17 @@ async function executeIntent(sock, m, opts, intent) {
                         (name ? ` → command .${name}` : '') +
                         `\n\n\`\`\`js\n${String(res.content || '').slice(0, 3000)}\n\`\`\``
                     );
+                    // Attach the REAL file too — the owner wants the file itself,
+                    // not just the code preview. (@crysnovax—FIX14-08-26)
+                    try {
+                        let mime = 'application/octet-stream';
+                        try { mime = require('mime-types').lookup(abs) || mime; } catch {}
+                        await opts.sendMessage(m.chat, {
+                            document: fs.readFileSync(abs),
+                            mimetype: mime,
+                            fileName: path.basename(abs)
+                        }, { quoted: m });
+                    } catch {}
                 } else {
                     await opts.reply(`_*✘ Saved but syntax error in \`${display}\`:*_\n\`\`\`\n${res.error.slice(0, 1200)}\n\`\`\``);
                 }
@@ -1324,7 +1434,16 @@ async function executeIntent(sock, m, opts, intent) {
             }
 
             case 'send_file': {
-                const resolved = resolveReadPath(intent.path || intent.file || intent.fileName || intent.name || '');
+                // "send as a js file" (no name) → newest command file just created
+                // (@crysnovax—FIX14-08-26)
+                const rawPath = String(intent.path || intent.file || intent.fileName || intent.name || '');
+                let resolved = null;
+                if (/^(last_created|newest|latest|just created)$/i.test(rawPath)) {
+                    const newest = findNewestCommandFile();
+                    if (newest) resolved = { abs: path.join(ROOT, newest), display: newest };
+                } else {
+                    resolved = resolveReadPath(rawPath);
+                }
                 if (!resolved) { await opts.reply('_✘ Invalid or blocked file path_'); return { handled: true }; }
                 if (!fs.existsSync(resolved.abs)) { await opts.reply(`_✘ \`${resolved.display}\` not found_`); return { handled: true }; }
                 let buffer;

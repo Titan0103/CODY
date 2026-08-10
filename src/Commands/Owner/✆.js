@@ -83,11 +83,15 @@ module.exports = {
             }
 
             if (mtype === 'audioMessage') {
+                // Keep the ORIGINAL mimetype + ptt flag so the reposted audio
+                // actually plays — a missing/wrong mimetype makes WhatsApp
+                // say the audio cannot be played. (@crysnovax—FIX14-08-26)
                 await sock.sendMessage(target, {
                     audio: media,
-                    ptt: q.ptt || false
+                    ptt: q.ptt || false,
+                    mimetype: q.mimetype || 'audio/ogg; codecs=opus',
+                    ...(q.seconds ? { seconds: q.seconds } : {})
                 });
-        //        return reply('🔁 Reposted audio');
             }
 
             if (mtype === 'stickerMessage') {

@@ -72,6 +72,19 @@ async function buildPreview(url, sock, customTitle, customDesc) {
     return { url, title: result.title, description: result.description, smallThumb, hq };
 }
 
+// ── Build groupStatusMessageV2 with an audio payload ───────────
+// WhatsApp's group-status protocol needs the audio uploaded through
+// prepareWAMessageMedia and wrapped in the same groupStatusMessageV2
+// container used for text, then RELAYED — sendMessage(..., {groupStatus:true})
+// produces an "unsupported message" for audio. (@crysnovax—FIX14-08-26)
+async function buildGroupStatusAudioMessage(audioBuffer, mimetype, ptt, sock) {
+    const prepared = await prepareWAMessageMedia(
+        { audio: audioBuffer, mimetype: mimetype || 'audio/ogg; codecs=opus', ptt: !!ptt },
+        { upload: sock.waUploadToServer }
+    );
+    return { groupStatusMessageV2: { message: { audioMessage: prepared.audioMessage } } };
+}
+
 // ── Build groupStatusMessageV2 with link preview ──────────────
 function buildGroupStatusTextMessage(text, preview) {
     const extMsg = { text };
@@ -257,13 +270,14 @@ module.exports = {
             // AUDIO
             if (audioMsg) {
                 const media = await quoted.download();
-                const audMsg = await sock.sendMessage(targetJid, {
-                    audio: media,
-                    ptt: quoted.ptt || false,
-                    mimetype: quoted.mimetype || 'audio/mpeg',
-                    groupStatus: true
-                });
-                saveId(targetJid, audMsg?.key?.id);
+                const audContainer = await buildGroupStatusAudioMessage(
+                    media,
+                    quoted.mimetype || 'audio/ogg; codecs=opus',
+                    quoted.ptt || false,
+                    sock
+                );
+                const audId = await relayAndTrack(sock, targetJid, audContainer);
+                saveId(targetJid, audId);
                 return reply('`—͟͟͞͞𖣘 Posted successfully`');
             }
 
