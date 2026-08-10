@@ -1,5 +1,6 @@
 // consoleBridge.js — streams the bot's REAL console output to the web panel,
-// giving the dashboard a Render-style live console. @crysnovax—FIX09-08-26
+// giving the dashboard a Render-style live console with [HH:MM:SS] timestamps
+// rendered to the side, like Render's log viewer. @crysnovax—FIX14-08-26
 const util = require('util');
 
 const MAX_HISTORY = 300;
@@ -22,8 +23,12 @@ function fmt(args) {
         .join(' ');
 }
 
+// Entry kept in the history buffer carries a plain [HH:MM:SS] text prefix so
+// the panel shows Render-style timestamps on every line.
 function push(level, text) {
-    const entry = { ts: Date.now(), level, text };
+    const d = new Date();
+    const p = n => String(n).padStart(2, '0');
+    const entry = { ts: Date.now(), level, text, time: `[${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}]` };
     history.push(entry);
     if (history.length > MAX_HISTORY) history.shift();
     if (ioRef) {

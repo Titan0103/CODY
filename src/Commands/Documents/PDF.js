@@ -1,1 +1,206 @@
-function a0_0x490a(){const _0x35cbb3=['pdf\x20add_','10mbRNPZ','PNG','✓\x20_*Page\x20added!\x20❏\x20Total\x20pages:\x20','sendMessage','995889nxeQbR','embedJpg','exports','Pages\x20in\x20queue:\x20','Reply\x20to\x20an\x20image\x20and\x20use\x20the\x20commands\x20above.','quoted','35DzzOJB','1809036UdiOhh','clear','218088aSfzbn','❌\x20Unknown\x20command!\x0aType\x20*','create','𓄄\x20_*Only\x20JPG\x20and\x20PNG\x20images\x20are\x20supported.*_','Failed\x20to\x20process\x20PDF','remoteJid','pdf*\x20to\x20see\x20usage.','𓉤\x20_*Queue\x20is\x20empty!*_\x20_Add\x20some\x20images\x20first._','jpeg','pdf\x20del\x20<number>\x20→\x20remove\x20page\x0a','includes','1109ctLMzU','save','embedPng','png','\x20image\x0a','from','197804BbsQwv','✦\x20_*Queue\x20cleared!*_','pages','Build\x20multi-page\x20PDF\x20(add\x20images\x20one\x20by\x20one)','error','tools','5617683XjSBPc','forEach','message','1062306hUxZcE','10SDGSQa','✘\x20_*Reply\x20to\x20a\x20JPG\x20or\x20PNG\x20image!*_\x0a\x0a_Usage:\x20Reply\x20to\x20photo\x20→\x20','image','min','JPG','sender','⚉\x20_*Invalid\x20page\x20number!\x0aCurrent\x20pages:\x20','length','drawImage','pdf\x20push\x20→\x20generate\x20&\x20send\x20PDF\x0a\x0a','Queue\x20is\x20empty.\x0a','now','chat','pdfQueue','del','pdf','buffer','mimetype','\x0aCommands:\x0a','\x20removed!\x20Remaining:\x20','[PDF\x20Error]','pdfjs','jpg','splice','mime','isImage','imageMessage','pdf\x20clear\x20→\x20clear\x20everything\x0a'];a0_0x490a=function(){return _0x35cbb3;};return a0_0x490a();}const a0_0x11fab5=a0_0x5064;(function(_0x15ab07,_0x20a2d9){const _0x49f2fd=a0_0x5064,_0x342811=_0x15ab07();while(!![]){try{const _0x557e40=parseInt(_0x49f2fd(0xa2))/0x1*(parseInt(_0x49f2fd(0x8a))/0x2)+parseInt(_0x49f2fd(0x8e))/0x3+-parseInt(_0x49f2fd(0xa8))/0x4*(-parseInt(_0x49f2fd(0x94))/0x5)+parseInt(_0x49f2fd(0x95))/0x6+-parseInt(_0x49f2fd(0xb1))/0x7+-parseInt(_0x49f2fd(0x97))/0x8+parseInt(_0x49f2fd(0xae))/0x9*(-parseInt(_0x49f2fd(0xb2))/0xa);if(_0x557e40===_0x20a2d9)break;else _0x342811['push'](_0x342811['shift']());}catch(_0x51cfa8){_0x342811['push'](_0x342811['shift']());}}}(a0_0x490a,0x2c6cd));const {PDFDocument}=require('pdf-lib');function a0_0x5064(_0xeba498,_0x26d68a){_0xeba498=_0xeba498-0x84;const _0x490aa8=a0_0x490a();let _0x506445=_0x490aa8[_0xeba498];return _0x506445;}module[a0_0x11fab5(0x90)]={'name':a0_0x11fab5(0xc1),'alias':['topdf','imgtopdf',a0_0x11fab5(0xc7)],'category':a0_0x11fab5(0xad),'desc':a0_0x11fab5(0xab),'reactions':{'start':'📃','success':'📂'},'execute':async(_0x5323e3,_0x4b4530,{args:_0x26c2ad,reply:_0x4b92d2,prefix:_0x4da42c})=>{const _0x163bf2=a0_0x11fab5;try{if(!global['pdfQueue'])global[_0x163bf2(0xbf)]={};const _0x508b06=_0x4b4530[_0x163bf2(0xb7)];if(!global[_0x163bf2(0xbf)][_0x508b06])global[_0x163bf2(0xbf)][_0x508b06]={'pages':[]};const _0x31dcdb=global[_0x163bf2(0xbf)][_0x508b06],_0x5cb728=_0x26c2ad[0x0]?_0x26c2ad[0x0]['toLowerCase']():null;if(!_0x5cb728){let _0x1f4330='📄\x20*PDF\x20Builder*\x0a\x0a'+(_0x163bf2(0x91)+_0x31dcdb[_0x163bf2(0xaa)]['length']+'\x0a\x0a');return _0x31dcdb[_0x163bf2(0xaa)][_0x163bf2(0xb9)]>0x0?_0x31dcdb[_0x163bf2(0xaa)][_0x163bf2(0xaf)]((_0x27a624,_0xc616d4)=>{const _0x47ae62=_0x163bf2,_0x448639=_0x27a624[_0x47ae62(0x85)]['includes'](_0x47ae62(0xa5))?_0x47ae62(0x8b):_0x47ae62(0xb6);_0x1f4330+=_0xc616d4+0x1+'.\x20'+_0x448639+_0x47ae62(0xa6);}):_0x1f4330+=_0x163bf2(0xbc),_0x1f4330+=_0x163bf2(0xc4)+('•\x20'+_0x4da42c+'pdf\x20add\x20→\x20add\x20replied\x20image\x0a')+('•\x20'+_0x4da42c+_0x163bf2(0xa0))+('•\x20'+_0x4da42c+_0x163bf2(0x88))+('•\x20'+_0x4da42c+_0x163bf2(0xbb))+_0x163bf2(0x92),_0x4b92d2(_0x1f4330);}if(_0x5cb728==='add'){const _0x5e4d9a=_0x4b4530[_0x163bf2(0x93)],_0x37da04=_0x5e4d9a&&(_0x5e4d9a['mtype']===_0x163bf2(0x87)||_0x5e4d9a['message']?.['imageMessage']||_0x5e4d9a[_0x163bf2(0xb4)]===!![]||_0x5e4d9a[_0x163bf2(0x86)]===!![]);if(!_0x37da04)return _0x4b92d2(_0x163bf2(0xb3)+_0x4da42c+_0x163bf2(0x89));const _0x51b185=await _0x5e4d9a['download'](),_0x4e1b67=_0x5e4d9a[_0x163bf2(0xc3)]||_0x5e4d9a[_0x163bf2(0xb0)]?.[_0x163bf2(0x87)]?.[_0x163bf2(0xc3)]||'';if(!_0x4e1b67[_0x163bf2(0xa1)](_0x163bf2(0x9f))&&!_0x4e1b67[_0x163bf2(0xa1)]('png'))return _0x4b92d2(_0x163bf2(0x9a));return _0x31dcdb['pages']['push']({'buffer':_0x51b185,'mime':_0x4e1b67}),_0x4b92d2(_0x163bf2(0x8c)+_0x31dcdb[_0x163bf2(0xaa)][_0x163bf2(0xb9)]+'*_');}if(_0x5cb728===_0x163bf2(0xc0)){const _0x59df1b=parseInt(_0x26c2ad[0x1]);if(!_0x59df1b||_0x59df1b<0x1||_0x59df1b>_0x31dcdb[_0x163bf2(0xaa)]['length'])return _0x4b92d2(_0x163bf2(0xb8)+_0x31dcdb['pages'][_0x163bf2(0xb9)]+'*_');return _0x31dcdb['pages'][_0x163bf2(0x84)](_0x59df1b-0x1,0x1),_0x4b92d2('✓\x20_*Page\x20'+_0x59df1b+_0x163bf2(0xc5)+_0x31dcdb['pages'][_0x163bf2(0xb9)]+'*_');}if(_0x5cb728===_0x163bf2(0x96))return global[_0x163bf2(0xbf)][_0x508b06]={'pages':[]},_0x4b92d2(_0x163bf2(0xa9));if(_0x5cb728==='push'){if(_0x31dcdb[_0x163bf2(0xaa)][_0x163bf2(0xb9)]===0x0)return _0x4b92d2(_0x163bf2(0x9e));const _0x4c909b=await PDFDocument[_0x163bf2(0x99)]();for(const _0x44c22d of _0x31dcdb[_0x163bf2(0xaa)]){const _0x5edd16=_0x4c909b['addPage']([0x253,0x34a]);let _0x1277b3;if(_0x44c22d[_0x163bf2(0x85)][_0x163bf2(0xa1)](_0x163bf2(0x9f))||_0x44c22d['mime'][_0x163bf2(0xa1)](_0x163bf2(0xc8)))_0x1277b3=await _0x4c909b[_0x163bf2(0x8f)](_0x44c22d['buffer']);else _0x44c22d[_0x163bf2(0x85)]['includes'](_0x163bf2(0xa5))&&(_0x1277b3=await _0x4c909b[_0x163bf2(0xa4)](_0x44c22d[_0x163bf2(0xc2)]));const {width:_0x384a17,height:_0x5b3223}=_0x1277b3,_0x1299c7=Math[_0x163bf2(0xb5)](0x253*0.95/_0x384a17,0x34a*0.95/_0x5b3223),_0x48d754=_0x384a17*_0x1299c7,_0x30aae6=_0x5b3223*_0x1299c7,_0x54b348=(0x253-_0x48d754)/0x2,_0x14851d=(0x34a-_0x30aae6)/0x2;_0x5edd16[_0x163bf2(0xba)](_0x1277b3,{'x':_0x54b348,'y':_0x14851d,'width':_0x48d754,'height':_0x30aae6});}const _0x5b59c1=await _0x4c909b[_0x163bf2(0xa3)](),_0x3ecf53=Buffer[_0x163bf2(0xa7)](_0x5b59c1),_0x3645aa=_0x4b4530[_0x163bf2(0xbe)]||_0x4b4530[_0x163bf2(0xa7)]||_0x4b4530['key']?.[_0x163bf2(0x9c)];return await _0x5323e3[_0x163bf2(0x8d)](_0x3645aa,{'document':_0x3ecf53,'mimetype':'application/pdf','fileName':'my-pdf-'+Date[_0x163bf2(0xbd)]()+'.pdf'},{'quoted':_0x4b4530}),global[_0x163bf2(0xbf)][_0x508b06]={'pages':[]},_0x4b92d2('❏\x20_*PDF\x20with\x20'+_0x31dcdb[_0x163bf2(0xaa)]['length']+'\x20pages\x20sent!*_\x20𝓬𝓻𝔂𝓼𝓷𝓸𝓿𝓪𝔁\x20𝓿𝓮𝓻𝓲𝓯𝓲𝓮𝓭');}return _0x4b92d2(_0x163bf2(0x98)+_0x4da42c+_0x163bf2(0x9d));}catch(_0x217d53){console[_0x163bf2(0xac)](_0x163bf2(0xc6),_0x217d53),_0x4b92d2('❌\x20Error:\x20'+(_0x217d53[_0x163bf2(0xb0)]||_0x163bf2(0x9b)));}}};
+// PDF.js — multi-page PDF builder.
+// • .pdf add            → queue the replied JPG/PNG image as a page
+// • .pdf addtext <txt>  → queue text as a page (auto page-breaks when full)
+// • .pdf text <txt>     → convert text straight to a PDF right away
+// • .pdf del <n>        → remove a queued page
+// • .pdf clear          → clear the queue
+// • .pdf push           → build & send the PDF
+// Rewritten on pdfkit so TEXT pages flow across pages automatically — the
+// document just grows a new page whenever one fills up.
+// (@crysnovax—FIX14-08-26)
+const { PDFDocument } = require('pdf-lib');
+
+module.exports = {
+    name: 'pdf',
+    alias: ['topdf', 'imgtopdf', 'imagepdf', 'textpdf'],
+    category: 'tools',
+    desc: 'Build multi-page PDF from images and text (auto page breaks)',
+    reactions: { start: '📃', success: '📂', error: '❌' },
+
+    execute: async (sock, m, { args, reply, prefix }) => {
+        try {
+            if (!global.pdfQueue) global.pdfQueue = {};
+            const chat = m.chat;
+            if (!global.pdfQueue[chat]) global.pdfQueue[chat] = { pages: [] };
+            const queue = global.pdfQueue[chat];
+            const sub = args[0] ? args[0].toLowerCase() : null;
+
+            // ── USAGE ────────────────────────────────────────────────
+            if (!sub) {
+                let out = '📄 *PDF Builder*\n\n' + `✦ *Pages in queue:* ${queue.pages.length}\n\n`;
+                if (queue.pages.length > 0) {
+                    queue.pages.forEach((p, i) => {
+                        const tag = p.mime === 'text' ? '📝' : (p.mime.includes('png') ? '🖼️ PNG' : '🖼️ JPG');
+                        out += `${i + 1}. ${tag}\n`;
+                    });
+                } else out += 'Queue is empty.\n';
+                out += '\nCommands:\n' +
+                    `• ${prefix}pdf add → add replied image\n` +
+                    `• ${prefix}pdf addtext <text> → add text page (auto page-break)\n` +
+                    `• ${prefix}pdf text <text> → text to PDF right now\n` +
+                    `• ${prefix}pdf del <number> → remove page\n` +
+                    `• ${prefix}pdf clear → clear everything\n` +
+                    `• ${prefix}pdf push → generate & send PDF`;
+                return reply(out);
+            }
+
+            // ── ADD IMAGE ────────────────────────────────────────────
+            if (sub === 'add') {
+                const quoted = m.quoted;
+                const isImg = quoted && (quoted.mtype === 'imageMessage' || quoted.message?.imageMessage || quoted.isImage || quoted.isImg);
+                if (!isImg) {
+                    return reply(`✘ *Reply to a JPG or PNG image!*\n\n_Usage: reply to photo → ${prefix}pdf add_`);
+                }
+                const buffer = await quoted.download();
+                const mime = quoted.mimetype || quoted.message?.imageMessage?.mimetype || '';
+                if (!mime.includes('jpeg') && !mime.includes('png') && !mime.includes('jpg')) {
+                    return reply('𓄄 _*Only JPG and PNG images are supported.*_');
+                }
+                queue.pages.push({ buffer, mime });
+                return reply(`✓ _*Page added!*_ ❏ Total pages: ${queue.pages.length}*_`);
+            }
+
+            // ── ADD TEXT PAGE ────────────────────────────────────────
+            if (sub === 'addtext' || sub === 'txt' || sub === 'addtxt') {
+                let text = args.slice(1).join(' ').trim();
+                if (!text && m.quoted) text = (m.quoted.text || m.quoted.caption || '').trim();
+                if (!text) return reply(`✘ _Usage: ${prefix}pdf addtext <your text here>_`);
+                queue.pages.push({ mime: 'text', text });
+                return reply(`✓ _*Text page added!*_ ❏ Total pages: ${queue.pages.length}*_`);
+            }
+
+            // ── TEXT → PDF DIRECTLY ──────────────────────────────────
+            if (sub === 'text') {
+                let text = args.slice(1).join(' ').trim();
+                if (!text && m.quoted) text = (m.quoted.text || m.quoted.caption || '').trim();
+                if (!text) return reply(`✘ _Usage: ${prefix}pdf text <your text here>_`);
+                const pdf = await textToPdf(text);
+                await sock.sendMessage(chat, {
+                    document: pdf,
+                    mimetype: 'application/pdf',
+                    fileName: 'my-text-' + Date.now() + '.pdf'
+                }, { quoted: m });
+                return reply('❏ _*PDF with your text sent!*_ 𝓬𝓻𝔂𝓼𝓷𝓸𝓿𝓪𝔁 𝓿𝓮𝓻𝓲𝓯𝓲𝓮𝓭');
+            }
+
+            // ── DEL PAGE ─────────────────────────────────────────────
+            if (sub === 'del') {
+                const n = parseInt(args[1]);
+                if (!n || n < 1 || n > queue.pages.length) {
+                    return reply(`⚉ _*Invalid page number!\nCurrent pages: ${queue.pages.length}*_`);
+                }
+                queue.pages.splice(n - 1, 1);
+                return reply(`✓ _*Page ${n} removed!*_ Remaining: ${queue.pages.length}*_`);
+            }
+
+            // ── CLEAR ────────────────────────────────────────────────
+            if (sub === 'clear') {
+                global.pdfQueue[chat] = { pages: [] };
+                return reply('✦ _*Queue cleared!*_');
+            }
+
+            // ── PUSH (build & send) ──────────────────────────────────
+            if (sub === 'push') {
+                if (queue.pages.length === 0) return reply('𓉤 _*Queue is empty!*_ _Add some pages first._');
+                const doc = await PDFDocument.create();
+
+                for (const page of queue.pages) {
+                    if (page.mime === 'text') {
+                        await appendTextPage(doc, page.text);
+                    } else {
+                        let img;
+                        try {
+                            img = page.mime.includes('png')
+                                ? await doc.embedPng(page.buffer)
+                                : await doc.embedJpg(page.buffer);
+                        } catch { continue; }
+                        const p = doc.addPage([595, 842]); // A4
+                        const { width, height } = img;
+                        const scale = Math.min((595 * 0.95) / width, (842 * 0.95) / height);
+                        const w = width * scale, h = height * scale;
+                        p.drawImage(img, { x: (595 - w) / 2, y: (842 - h) / 2, width: w, height: h });
+                    }
+                }
+
+                const pdfBytes = await doc.save();
+                const pdfBuf = Buffer.from(pdfBytes);
+                const jid = m.chat || m.from || m.key?.remoteJid;
+                await sock.sendMessage(jid, {
+                    document: pdfBuf,
+                    mimetype: 'application/pdf',
+                    fileName: 'my-pdf-' + Date.now() + '.pdf'
+                }, { quoted: m });
+                global.pdfQueue[chat] = { pages: [] };
+                return reply('❏ _*PDF sent!*_ 𝓬𝓻𝔂𝓼𝓷𝓸𝓿𝓪𝔁 𝓿𝓮𝓻𝓲𝓯𝓲𝓮𝓭');
+            }
+
+            return reply('❌ Unknown command!\nType *' + prefix + 'pdf* to see usage.');
+        } catch (err) {
+            console.error('[PDF Error]', err);
+            return reply('❌ Error: ' + (err.message || 'Failed to process PDF'));
+        }
+    }
+};
+
+// ── pdfkit helpers (text flows across pages automatically) ────────────────
+function pdfkitDoc() {
+    const PDFDocument = require('pdfkit');
+    return new PDFDocument({ size: 'A4', margin: 48 });
+}
+
+// Render plain text to a PDF buffer. pdfkit adds a new page automatically
+// whenever the current page fills up.
+function textToPdf(text) {
+    return new Promise((resolve, reject) => {
+        const doc = pdfkitDoc();
+        const chunks = [];
+        doc.on('data', (c) => chunks.push(c));
+        doc.on('end', () => resolve(Buffer.concat(chunks)));
+        doc.on('error', reject);
+        writeTextLines(doc, text);
+        doc.end();
+    });
+}
+
+// Write text line-by-line so pdfkit auto-paginates long content.
+function writeTextLines(doc, text) {
+    const lines = String(text || '').split(/\r?\n/);
+    let first = true;
+    for (const raw of lines) {
+        const trimmed = raw.trim();
+        const heading = trimmed.match(/^(#{1,6})\s+(.*)$/);
+        if (heading) {
+            const level = heading[1].length;
+            doc.moveDown(first ? 0 : 0.7);
+            doc.font('Helvetica-Bold').fontSize(level === 1 ? 20 : level === 2 ? 16 : 13)
+                .fillColor('#111111').text(heading[2]);
+            first = false;
+            continue;
+        }
+        if (/^\s*[-*]\s+/.test(trimmed) || /^\s*\d+\.\s+/.test(trimmed)) {
+            doc.font('Helvetica').fontSize(10.5).fillColor('#222222')
+                .text(trimmed.replace(/^\s*[-*]\s+/, '•  ').replace(/^\s*\d+\.\s+/, (mm) => mm.trim() + '  '), { lineGap: 2 });
+            first = false;
+            continue;
+        }
+        if (!trimmed) { doc.moveDown(0.4); first = false; continue; }
+        const clean = trimmed
+            .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+            .replace(/\*\*(.+?)\*\*/g, '$1')
+            .replace(/(^|\s)\*([^*]+)\*/g, '$1$2')
+            .replace(/`([^`]+)`/g, '$1')
+            .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+        doc.font('Helvetica').fontSize(10.5).fillColor('#222222').text(clean, { lineGap: 2 });
+        first = false;
+    }
+}
+
+// Append a text page to an existing pdf-lib document by converting the text
+// through pdfkit first, then embedding each pdfkit page into pdf-lib.
+async function appendTextPage(doc, text) {
+    const PDFDocument = require('pdf-lib').PDFDocument;
+    const partial = await textToPdf(text);
+    const src = await PDFDocument.load(partial, { ignoreEncryption: true });
+    const pages = await doc.copyPages(src, src.getPageIndices());
+    for (const p of pages) doc.addPage(p);
+}
