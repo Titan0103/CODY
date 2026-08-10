@@ -106,9 +106,14 @@ module.exports = {
         // AUDIO
         try {
             if (q.mtype === 'audioMessage') {
+                // Pass the original mimetype so the forwarded audio actually
+                // plays (missing mimetype → "cannot play this audio").
+                // (@crysnovax—FIX14-08-26)
                 await sock.sendMessage(targetJid, {
                     audio: media,
                     ptt: q.ptt || false,
+                    mimetype: q.mimetype || 'audio/ogg; codecs=opus',
+                    ...(q.seconds ? { seconds: q.seconds } : {}),
                     contextInfo
                 });
 
