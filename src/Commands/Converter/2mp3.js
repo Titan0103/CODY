@@ -63,7 +63,7 @@ module.exports = {
 
             cleanUp(inPath, outPath);
             await sock.sendMessage(m.chat, { react: { text: '🎧', key: m.key } });
-            return reply('`✓ Mp3 sent` — clean audio, no caption 🎧');
+          //  return reply('`✓ Mp3 sent` — clean audio, no caption 🎧');
         } catch (err) {
             console.error('[2MP3 ERROR]', err.message);
             cleanUp(inPath, outPath);
