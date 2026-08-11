@@ -1525,7 +1525,11 @@ async function executeIntent(sock, m, opts, intent) {
             }
 
             case 'chat': {
-                if (String(intent.reply || '').trim()) await opts.reply(String(intent.reply).trim());
+                // An empty AI "chat" intent must NOT be consumed silently —
+                // fall through so the normal chat brain answers instead.
+                // (@crysnovax—FIX15-08-26)
+                if (!String(intent.reply || '').trim()) return { handled: false };
+                await opts.reply(String(intent.reply).trim());
                 return { handled: true };
             }
 
@@ -1680,7 +1684,14 @@ async function execute(sock, m, opts) {
         addToMemory(m.chat, 'user', text);
         const prompt = buildPrompt(m.chat, text);
         let answer = await askAI(prompt);
-        if (!answer) return true; // consumed, but AI unavailable
+        if (!answer) {
+            // Never leave the user hanging after the typing indicator: every
+            // AI endpoint timed out, so say so instead of consuming the
+            // message in silence. (@crysnovax—FIX15-08-26)
+            await sock.sendPresenceUpdate('paused', m.chat).catch(() => {});
+            await opts.reply('_🤖 My AI brain is unreachable right now — try again in a few seconds._');
+            return true;
+        }
 
         // Never let a refusal be the final answer — re-ask once with a hard
         // nudge so "I can't do this / I can't do that" turns into action.
