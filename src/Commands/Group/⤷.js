@@ -3,6 +3,37 @@ const fs = require('fs');
 const path = require('path');
 const { prepareWAMessageMedia, generateMessageIDV2, buildLinkPreview } = require('@crysnovax/baileys');
 
+// ── Admin-gated groups ────────────────────────────────────────
+// gstatus in these groups is ADMINS-ONLY. A non-admin is rejected outright,
+// and `gstatus <text> | all` always skips these groups when the sender is
+// not an admin of the target group — even when broadcast from elsewhere.
+// (@crysnovax—FIX15-08-26)
+const RESTRICTED_GROUPS = new Set([
+    '120363426760068896@g.us',
+    '120363396903069780@g.us',
+    '120363411385283733@g.us',
+    '120363410281907240@g.us',
+]);
+
+const normalizeJid = (jid = '') => String(jid || '').replace(/:\d+@/, '@');
+
+// True when the sender is a group admin of the given group (checked by JID
+// or phone, matching crysMsg.js's own admin detection).
+async function isSenderAdminOfGroup(sock, groupJid, senderJid) {
+    try {
+        const meta = await sock.groupMetadata(groupJid).catch(() => null);
+        const adminJids = (meta?.participants || [])
+            .filter(p => p.admin)
+            .map(p => normalizeJid(p.id));
+        const sender = normalizeJid(senderJid);
+        const senderPhone = sender.split('@')[0];
+        return adminJids.includes(sender)
+            || adminJids.some(j => j.split('@')[0] === senderPhone);
+    } catch {
+        return false;
+    }
+}
+
 // ── Status ID Store ───────────────────────────────────────────
 const DB_PATH = path.join(__dirname, '../../../database/gstatus-ids.json');
 
@@ -82,6 +113,14 @@ async function buildGroupStatusAudioMessage(audioBuffer, mimetype, ptt, sock) {
         { audio: audioBuffer, mimetype: mimetype || 'audio/ogg; codecs=opus', ptt: !!ptt },
         { upload: sock.waUploadToServer }
     );
+    // The client only renders group-status AUDIO correctly when the inner
+    // audio message carries contextInfo.isGroupStatus — the exact flag
+    // Baileys' own generateWAMessageContent sets for groupStatus messages.
+    // Without it, groups show the audio as an "unsupported message".
+    // (@crysnovax—FIX15-08-26)
+    if (prepared.audioMessage) {
+        prepared.audioMessage.contextInfo = { isGroupStatus: true };
+    }
     return { groupStatusMessageV2: { message: { audioMessage: prepared.audioMessage } } };
 }
 
@@ -171,6 +210,7 @@ module.exports = {
 
                     let success = 0;
                     let failed = 0;
+                    let skipped = 0;
                     const url = extractFirstUrl(messageText);
                     let message;
 
@@ -182,6 +222,13 @@ module.exports = {
                     }
 
                     for (const groupId of groupIds) {
+                        // Admin-gated groups are SKIPPED by force for non-admins
+                        // — the broadcast must never post there on their behalf.
+                        // (@crysnovax—FIX15-08-26)
+                        if (RESTRICTED_GROUPS.has(groupId) && !(await isSenderAdminOfGroup(sock, groupId, m.sender))) {
+                            skipped++;
+                            continue;
+                        }
                         try {
                             await relayAndTrack(sock, groupId, message);
                             success++;
@@ -193,7 +240,8 @@ module.exports = {
 
                     return reply(
                         `\`—͟͟͞͞𖣘 Broadcast Done\`\n` +
-                        `Success: ${success}\nFailed: ${failed}`
+                        `Success: ${success}\nFailed: ${failed}` +
+                        (skipped ? `\nSkipped: ${skipped}` : '')
                     );
                 }
             }
@@ -227,6 +275,13 @@ module.exports = {
                 } catch {
                     return reply('`✘ Bot is not in that group`');
                 }
+            }
+
+            // Admin-gated groups: only admins of those groups may post status
+            // there — hard rule, enforced for direct posts too.
+            // (@crysnovax—FIX15-08-26)
+            if (RESTRICTED_GROUPS.has(targetJid) && !(await isSenderAdminOfGroup(sock, targetJid, m.sender))) {
+                return reply('`✘ This group only allows admins to post status`');
             }
 
             const imageMsg   = quoted.mtype === 'imageMessage'    ? quoted : null;
