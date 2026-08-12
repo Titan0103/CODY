@@ -5,7 +5,6 @@
 
 const {
     default: makeWASocket,
-    useMultiFileAuthState,
     fetchLatestBaileysVersion,
     Browsers,
     DisconnectReason,
@@ -23,6 +22,10 @@ async function getAuthState() {
     if (!fs.existsSync(SESSION_PATH)) {
         fs.mkdirSync(SESSION_PATH, { recursive: true });
     }
+    // Baileys 2.7.4 keeps the auth helper in its Utils entrypoint. Import it
+    // directly so startup works even when a CommonJS require namespace omits
+    // star-re-exported ESM utilities.
+    const { useMultiFileAuthState } = await import('@crysnovax/baileys/lib/Utils/use-multi-file-auth-state.js');
     return await useMultiFileAuthState(SESSION_PATH);
 }
 
