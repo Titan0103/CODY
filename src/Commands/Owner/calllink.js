@@ -15,7 +15,7 @@ module.exports = {
             const event = minutes ? { startTime: Date.now() + minutes * 60000 } : undefined;
             const token = await sock.createCallLink(type, event);
             if (!token) throw new Error('No token returned');
-            const link = `https://call.whatsapp.com/voice/${token}`;
+            const link = `https://call.whatsapp.com/${type === 'video' ? 'video' : 'voice'}/${token}`;
             
             await sock.sendMessage(m.chat, { react: { text: '🔗', key: m.key } });
             
