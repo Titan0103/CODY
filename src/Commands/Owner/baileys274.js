@@ -2,7 +2,7 @@
 
 function usage(reply) {
     return reply([
-        'Baileys 2.7.4 commands:',
+        'Baileys 2.7.5 commands:',
         '.wa groupcall <group-jid> <jid,...> [video]',
         '.wa regcheck <number>',
         '.wa regcode <number> [sms|voice]',
@@ -35,10 +35,10 @@ function requireMethod(sock, name) {
 
 module.exports = {
     name: 'wa',
-    alias: ['baileys274', 'wafeatures'],
+    alias: ['baileys275', 'wafeatures'],
     category: 'Owner',
     owner: true,
-    desc: 'Baileys 2.7.4 feature commands',
+    desc: 'Baileys 2.7.5 feature commands',
     execute: async (sock, m, { args, reply }) => {
         const sub = String(args.shift() || '').toLowerCase();
         try {
