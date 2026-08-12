@@ -56,9 +56,9 @@ const loadCommands = () => {
              //       if (typeof cmd.name !== 'string' || !cmd.name.trim()) {
                  //       throw new TypeError('command is missing a valid name');
              //       }
-                    if (typeof cmd.execute !== 'function') {
-                        throw new TypeError(`command "${cmd.name}" is missing execute()`);
-                    }
+               //     if (typeof cmd.execute !== 'function') {
+                 //       throw new TypeError(`command "${cmd.name}" is missing execute()`);
+          //          }
                     if (!cmd.category) cmd.category = cat;
                     if (addCommand(cmd)) total++;
                 }
