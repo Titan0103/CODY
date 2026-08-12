@@ -46,17 +46,20 @@ module.exports = {
             if (sub === 'groupcall') {
                 requireMethod(sock, 'groupCall');
                 const jid = args.shift();
-                const participants = String(args.shift() || '').split(',').filter(Boolean);
+                const participants = String(args.shift() || '').split(',').map(value => value.trim()).filter(Boolean);
+                if (!jid || !participants.length || (args[0] && args[0] !== 'video')) return usage(reply);
                 const result = await sock.groupCall(jid, participants, args[0] === 'video');
                 return reply(`Group call started: ${result?.id || 'created'}`);
             }
             if (sub === 'regcheck') {
                 requireMethod(sock, 'checkNumberAvailable');
+                if (!args[0]) return usage(reply);
                 return reply(JSON.stringify(await sock.checkNumberAvailable(args[0])));
             }
             if (sub === 'regcode') {
                 requireMethod(sock, 'requestRegistrationCode');
-                return reply(JSON.stringify(await sock.requestRegistrationCode(args[0], args[1] === 'voice' ? 'voice' : 'sms')));
+                if (!args[0] || (args[1] && !['sms', 'voice'].includes(args[1]))) return usage(reply);
+                return reply(JSON.stringify(await sock.requestRegistrationCode(args[0], args[1] || 'sms')));
             }
             if (sub === 'managed') {
                 requireMethod(sock, 'fetchManagedAccount');
