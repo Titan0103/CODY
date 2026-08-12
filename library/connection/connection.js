@@ -7,8 +7,7 @@ const {
     default: makeWASocket,
     fetchLatestBaileysVersion,
     Browsers,
-    DisconnectReason,
-    wrapSocket
+    DisconnectReason
 } = require('@crysnovax/baileys');
 const { Boom } = require('@hapi/boom');
 const pino = require('pino');
@@ -177,11 +176,7 @@ async function createSocket(sessionId) {
         getMessage: null
     });
 
-    // Baileys 2.7.4 exposes wrapSocket to add anti-spam protections without
-    // changing the public socket API. Keep a graceful fallback for older builds.
-    const protectedSock = typeof wrapSocket === 'function' ? wrapSocket(sock) : sock;
-
-    return { sock: protectedSock, saveCreds, state };
+    return { sock, saveCreds, state };
 }
 
 async function clearSession() {
