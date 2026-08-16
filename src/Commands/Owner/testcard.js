@@ -40,8 +40,12 @@ const testcard = {
         };
 
         try {
-            await sock.sendRichButtonGrid(m.chat, payload);
-            return reply('Meta AI-style test card sent. Tap a button to verify the response handler.');
+            const result = await sock.sendRichButtonGrid(m.chat, payload);
+            const messageId = result?.key?.id || result?.messageId;
+            if (!messageId) {
+                throw new Error('rich-grid relay returned no message key');
+            }
+            return reply(`Meta AI-style rich-grid relay accepted (message ${messageId}). Check the chat for rendering.`);
         } catch (error) {
             return reply(`testcard failed: ${error?.message || error}`);
         }

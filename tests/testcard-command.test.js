@@ -30,7 +30,7 @@ test('testcard sends the Meta AI-style image-backed rich grid', async () => {
     assert.ok(calls[0].payload.cards.every(card => card.buttons.length > 0));
     assert.match(calls[0].payload.text, /MENU/);
     assert.equal(replies.length, 1);
-    assert.match(replies[0], /test card sent/i);
+    assert.match(replies[0], /relay accepted/i);
 });
 
  test('testcard reports a clear error when the rich-grid helper is unavailable', async () => {

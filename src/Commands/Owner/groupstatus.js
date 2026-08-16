@@ -10,8 +10,8 @@ function textArgs(args = []) {
 }
 
 module.exports = {
-    name: 'groupstatus',
-    alias: ['groupStatus', 'gstatus'],
+    name: 'ownerstatus',
+    alias: ['owner-groupstatus'],
     category: 'Owner',
     ownerOnly: true,
     desc: 'Post text or replied audio/media to a group status',
