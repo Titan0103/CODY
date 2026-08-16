@@ -21,6 +21,8 @@ const { setupMuteSchedules } = require('./src/Commands/Admin/Mute')
 
 // plogme integration — internal processing AI (@crysnovax—FIX08-07-26)
 const plogmeCmd = require('./src/Commands/Core/plogme.js');
+const legacyChatbot = require('./src/Commands/Core/❚.js');
+const { handleChatbotCompatibility } = require('./src/Commands/AI/chatbot-compat.js');
 
 const MARKER = '\u200E';
 
@@ -544,11 +546,21 @@ try {
                 console.error('[PLOGME HOOK ERROR]', err?.message || err);
             }
 
-            // ── Legacy auto-reply brains (❚.js chatbot + CRYSNOVA onMessage)
-            //    REMOVED: both auto-replied on top of PLOGME whenever it
-            //    was enabled, which is what made commands/replies appear
-            //    twice in no-prefix mode. PLOGME is the single brain now.
-            //    (@crysnovax—FIX12-08-26)
+            // ── Legacy chatbot compatibility ─────────────────────────────
+            // Existing users who enabled `.chatbot on` still receive the
+            // legacy Core chatbot. It is skipped whenever PLOGME is enabled
+            // for this chat, preventing duplicate automatic replies.
+            try {
+                const legacyHandled = await handleChatbotCompatibility(
+                    sock,
+                    m,
+                    customStore,
+                    { legacy: legacyChatbot, active: plogmeCmd }
+                );
+                if (legacyHandled) return;
+            } catch (err) {
+                console.error('[CHATBOT COMPAT ERROR]', err?.message || err);
+            }
 
             try {
                 const antigm = require('./src/Commands/Admin/antigm.js');
