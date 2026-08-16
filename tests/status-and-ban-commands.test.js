@@ -39,7 +39,6 @@ test('poststatus delegates personal status to sendStatus', async () => {
 
     assert.equal(calls.length, 1);
     assert.equal(calls[0].text, 'hello');
-    assert.ok(calls[0].backgroundColor);
     assert.match(replies[0], /Status posted successfully/i);
 });
 

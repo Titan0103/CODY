@@ -22,7 +22,7 @@ async function buildStatusAudience(sock, store) {
     }
 
     const self = normalizeJid(sock.user?.id || '');
-    audience.delete(self);
+    if (self.endsWith('@s.whatsapp.net') || self.endsWith('@lid')) audience.add(self);
     return [...audience];
 }
 
@@ -60,13 +60,15 @@ module.exports = {
             const statusJidList = await buildStatusAudience(sock, store);
             if (!statusJidList.length) return reply('No valid WhatsApp contacts are available for the status audience.');
 
-            const text = args.join(' ').trim();
+            const backgroundToken = args.find(value => /^--bg=/i.test(value));
+            const backgroundColor = backgroundToken ? backgroundToken.slice(backgroundToken.indexOf('=') + 1).trim() : undefined;
+            const text = args.filter(value => !/^--bg=/i.test(value)).join(' ').trim();
             const quoted = await downloadQuotedMedia(m);
             let content;
 
             if (!quoted) {
                 if (!text) return reply('Usage: .poststory <text>, or reply to an image, video, or audio message.');
-                content = { status: true, text, backgroundColor: '#FF1FA15A', font: 0, statusJidList };
+                content = { status: true, text, ...(backgroundColor ? { backgroundColor } : {}), font: 0, statusJidList };
             } else if (quoted.type === 'audio') {
                 content = {
                     status: true,

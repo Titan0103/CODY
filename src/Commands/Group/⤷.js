@@ -1,7 +1,7 @@
 const sharp = require('sharp');
 const fs = require('fs');
 const path = require('path');
-const { prepareWAMessageMedia, generateMessageIDV2, buildLinkPreview } = require('@crysnovax/baileys');
+const { prepareWAMessageMedia, generateWAMessageContent, generateMessageIDV2, buildLinkPreview } = require('@crysnovax/baileys');
 
 // ── Admin-gated groups ────────────────────────────────────────
 // gstatus in these groups is ADMINS-ONLY. A non-admin is rejected outright,
@@ -16,6 +16,16 @@ const RESTRICTED_GROUPS = new Set([
 ]);
 
 const normalizeJid = (jid = '') => String(jid || '').replace(/:\d+@/, '@');
+const STATUS_COLORS = ['#FF6B6B', '#4D96FF', '#6BCB77', '#FFD93D', '#845EC2', '#00C9A7'];
+let statusColorIndex = 0;
+const nextStatusColor = () => STATUS_COLORS[statusColorIndex++ % STATUS_COLORS.length];
+const parseStatusOptions = (text = '', args = []) => {
+    const tokens = Array.isArray(args) && args.length ? args : String(text).split(/\s+/).filter(Boolean);
+    const backgroundToken = tokens.find(token => /^--bg=/i.test(token));
+    const backgroundColor = backgroundToken ? backgroundToken.slice(backgroundToken.indexOf('=') + 1) : undefined;
+    const cleanTokens = tokens.filter(token => !/^--bg=/i.test(token));
+    return { backgroundColor, cleanText: cleanTokens.join(' ').trim() };
+};
 
 // True when the sender is a group admin of the given group (checked by JID
 // or phone, matching crysMsg.js's own admin detection).
@@ -73,6 +83,25 @@ async function relayAndTrack(sock, jid, message) {
     await sock.relayMessage(jid, message, { messageId: msgId });
     saveId(jid, msgId);
     return msgId;
+}
+
+async function sendGroupStatusCompat(sock, jid, content, backgroundColor) {
+    const selectedColor = backgroundColor || nextStatusColor();
+    if (typeof sock.sendGroupStatus === 'function') {
+        return sock.sendGroupStatus(jid, content, { backgroundColor: selectedColor });
+    }
+    if (typeof generateWAMessageContent !== 'function' || typeof sock.relayMessage !== 'function') {
+        throw new Error('This Baileys runtime cannot publish a compatible group status');
+    }
+    const message = await generateWAMessageContent({ ...content, groupStatus: true }, {
+        upload: sock.waUploadToServer,
+        logger: sock.logger,
+        backgroundColor: selectedColor,
+        options: sock.config?.options
+    });
+    const messageId = generateMessageIDV2(sock.user.id);
+    await sock.relayMessage(jid, message, { messageId });
+    return { key: { remoteJid: jid, fromMe: true, id: messageId }, message };
 }
 
 // ── URL Detection ─────────────────────────────────────────────
@@ -155,10 +184,12 @@ module.exports = {
     groupOnly: true,
     adminOnly: true,
 
-    execute: async (sock, m, { text, reply }) => {
+    execute: async (sock, m, { text, args, reply }) => {
         try {
             const quoted = m.quoted || {};
             const chat = m.chat;
+            const statusOptions = parseStatusOptions(text, args);
+            text = statusOptions.cleanText;
 
             await sock.sendMessage(chat, {
                 react: { text: '📸', key: m.key }
@@ -300,11 +331,10 @@ module.exports = {
                         .jpeg({ quality: 100 })
                         .toBuffer();
                 } catch {}
-                const imgMsg = await sock.sendMessage(targetJid, {
+                const imgMsg = await sendGroupStatusCompat(sock, targetJid, {
                     image: media,
-                    caption: finalCaption,
-                    groupStatus: true
-                });
+                    caption: finalCaption
+                }, statusOptions.backgroundColor);
                 saveId(targetJid, imgMsg?.key?.id);
                 return reply('`—͟͟͞͞𖣘 Posted successfully`');
             }
@@ -313,11 +343,10 @@ module.exports = {
             if (videoMsg) {
                 const media = await quoted.download();
                 const finalCaption = messageText || quoted.caption || quoted.text || '';
-                const vidMsg = await sock.sendMessage(targetJid, {
+                const vidMsg = await sendGroupStatusCompat(sock, targetJid, {
                     video: media,
-                    caption: finalCaption,
-                    groupStatus: true
-                });
+                    caption: finalCaption
+                }, statusOptions.backgroundColor);
                 saveId(targetJid, vidMsg?.key?.id);
                 return reply('`—͟͟͞͞𖣘 Posted successfully`');
             }
@@ -325,27 +354,24 @@ module.exports = {
             // AUDIO
             if (audioMsg) {
                 const media = await quoted.download();
-                const audContainer = await buildGroupStatusAudioMessage(
-                    media,
-                    quoted.mimetype || 'audio/ogg; codecs=opus',
-                    quoted.ptt || false,
-                    sock
-                );
-                const audId = await relayAndTrack(sock, targetJid, audContainer);
-                saveId(targetJid, audId);
+                const audioMsg = await sendGroupStatusCompat(sock, targetJid, {
+                    audio: media,
+                    mimetype: quoted.mimetype || 'audio/ogg; codecs=opus',
+                    ptt: quoted.ptt || false
+                }, statusOptions.backgroundColor);
+                saveId(targetJid, audioMsg?.key?.id);
                 return reply('`—͟͟͞͞𖣘 Posted successfully`');
             }
 
             // DOCUMENT
             if (docMsg) {
                 const media = await quoted.download();
-                const docMsgSent = await sock.sendMessage(targetJid, {
+                const docMsgSent = await sendGroupStatusCompat(sock, targetJid, {
                     document: media,
                     mimetype: quoted.mimetype,
                     fileName: quoted.fileName || 'document',
-                    caption: messageText,
-                    groupStatus: true
-                });
+                    caption: messageText
+                }, statusOptions.backgroundColor);
                 saveId(targetJid, docMsgSent?.key?.id);
                 return reply('`—͟͟͞͞𖣘 Posted successfully`');
             }
@@ -359,11 +385,10 @@ module.exports = {
                         .jpeg({ quality: 100 })
                         .toBuffer();
                 } catch {}
-                const stkMsg = await sock.sendMessage(targetJid, {
+                const stkMsg = await sendGroupStatusCompat(sock, targetJid, {
                     image: media,
-                    caption: messageText,
-                    groupStatus: true
-                });
+                    caption: messageText
+                }, statusOptions.backgroundColor);
                 saveId(targetJid, stkMsg?.key?.id);
                 return reply('`—͟͟͞͞𖣘 Posted successfully`');
             }
@@ -378,10 +403,9 @@ module.exports = {
                     const message = buildGroupStatusTextMessage(finalText, preview);
                     await relayAndTrack(sock, targetJid, message);
                 } else {
-                    const txtMsg = await sock.sendMessage(targetJid, {
-                        text: finalText,
-                        groupStatus: true
-                    });
+                    const txtMsg = await sendGroupStatusCompat(sock, targetJid, {
+                        text: finalText
+                    }, statusOptions.backgroundColor);
                     saveId(targetJid, txtMsg?.key?.id);
                 }
 

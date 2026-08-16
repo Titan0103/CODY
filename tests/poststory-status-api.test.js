@@ -42,6 +42,6 @@ test('poststory uses the verified sendStatus API when available', async () => {
     assert.equal(calls.length, 1);
     assert.equal(calls[0].type, 'sendStatus');
     assert.equal(calls[0].content.text, 'hello world');
-    assert.deepEqual(calls[0].content.statusJidList, ['12345@s.whatsapp.net']);
+    assert.deepEqual(calls[0].content.statusJidList, ['12345@s.whatsapp.net', '99999@s.whatsapp.net']);
     assert.match(replies[0], /Status posted successfully/);
 });
