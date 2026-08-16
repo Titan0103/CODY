@@ -39,6 +39,10 @@ const axios = {
 };
 const { execSync } = require('child_process');
 const { getVar } = require('../../Plugin/configManager');
+const missions = require('./plogme-missions');
+const dependencies = require('./plogme-dependencies');
+const { runHealthChecks } = require('./plogme-health');
+const { buildProjectIndex } = require('./plogme-project-index');
 
 const DATA_DIR = path.join(process.cwd(), 'database');
 const USER_CMD_DIR = path.join(__dirname, '../Commands/User');
@@ -199,6 +203,39 @@ function searchWorkspace(query, options = {}) {
     }
     return results;
 }
+async function researchWeb(query, limit = 3) {
+    const q = String(query || '').trim();
+    if (!q) return { query: q, sources: [] };
+    const response = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}`, { headers: { 'user-agent': 'CODY-PLOGME/1.0' } });
+    const html = await response.text();
+    const links = [...html.matchAll(/class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)].slice(0, limit);
+    const clean = value => String(value || '').replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&#x27;/g, "'").replace(/&quot;/g, '"').trim();
+    const sources = [];
+    for (const match of links) {
+        const url = match[1];
+        try {
+            const page = await fetch(url, { headers: { 'user-agent': 'CODY-PLOGME/1.0' }, signal: AbortSignal.timeout(12000) });
+            const body = clean((await page.text()).replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ')).replace(/\s+/g, ' ').slice(0, 5000);
+            sources.push({ title: clean(match[2]), url, excerpt: body });
+        } catch { sources.push({ title: clean(match[2]), url, excerpt: '' }); }
+    }
+    return { query: q, sources };
+}
+async function sendMissionControls(sock, m, mission) {
+    if (typeof sock?.sendRichButtonGrid !== 'function') return null;
+    try {
+        return await sock.sendRichButtonGrid(m.chat, {
+            text: `MISSION ${mission.id}`,
+            footer: mission.objective.slice(0, 120),
+            cards: [{ title: 'Mission Control', buttons: [
+                { id: `mission_status:${mission.id}`, text: 'View Status' },
+                { id: `mission_pause:${mission.id}`, text: 'Pause' },
+                { id: `mission_resume:${mission.id}`, text: 'Resume' },
+                { id: `mission_rollback:${mission.id}`, text: 'Rollback' }
+            ] }]
+        });
+    } catch { return null; }
+}
 function environmentSnapshot() {
     const packageJson = loadJson(path.join(ROOT, 'package.json'), {});
     return {
@@ -216,6 +253,7 @@ function environmentSnapshot() {
 }
 async function reportProgress(opts, message) {
     try {
+        if (opts?.missionId) missions.addEvent(opts.missionId, 'progress', message);
         if (typeof opts?.progress === 'function') return await opts.progress(String(message));
         if (typeof opts?.reply === 'function') return await opts.reply(`_*🛠️ PLOGME:*_ ${String(message)}`);
     } catch {}
@@ -1049,6 +1087,8 @@ const KNOWN_ACTIONS = new Set([
     'mute_user', 'unmute_user', 'mutesch', 'antis', 'plogme_mode',
     // FIX12-08-26: file delivery — send files, generate PDFs, zip archives
     'send_file', 'make_pdf', 'zip', 'search_file', 'search_code', 'search_web', 'environment', 'create_tool',
+    'mission_create', 'mission_list', 'mission_status', 'mission_pause', 'mission_resume', 'mission_rollback',
+    'dependency_status', 'suggest_dependency', 'install_dependency', 'project_index', 'health', 'research_web', 'inspect_media',
 ]);
 
 // Strip markdown fences / extra text and pull out the first JSON object.
@@ -1115,13 +1155,20 @@ function buildClassifierPrompt(userText) {
         `- "search the web for X" -> {"action":"search_web","query":"X"}\n` +
         `- "what is the bot environment/status" -> {"action":"environment"}\n` +
         `- "create a tool for X" -> {"action":"create_tool","name":"<name>","content":"<full JS module>"}\n` +
+        `- "plan/start/track this task" -> {"action":"mission_create","objective":"<goal>","plan":["<step>"]}\n` +
+        `- "show/list/resume/pause/rollback mission" -> use mission_list, mission_status, mission_resume, mission_pause, or mission_rollback\n` +
+        `- "suggest/check/install dependency X" -> use suggest_dependency, dependency_status, or install_dependency\n` +
+        `- "index the project / inspect project structure" -> {"action":"project_index"}\n` +
+        `- "run health check / diagnose bot" -> {"action":"health"}\n` +
+        `- "research X on the web" -> {"action":"research_web","query":"X"}\n` +
+        `- "inspect/analyze this image, video, audio, or document" -> {"action":"inspect_media"}\n` +
         `- "make/generate/create a PDF from X" / "convert X to pdf" / "write a pdf about/on X" -> {"action":"make_pdf","path":"<path or topic>"} (or "content":"<text>" for pasted text)\n` +
         `- "zip/compress these files" -> {"action":"zip","files":["<path1>","<path2>"]}\n` +
         `(for user actions the target comes from the @mention or the quoted message, so "mentioned" is the right value)\n\n` +
         `Possible actions: run_command, create_file, edit_file, delete_file, toggle_command, ` +
         `list_commands, reload, restart, status, memory, clear_memory, remember, forget, ` +
         `test, fix_code, train, personality, dev, set_pp, group_name, group_pp, kick, promote, ` +
-        `demote, mute_user, unmute_user, mutesch, antis, plogme_mode, send_file, make_pdf, zip, search_file, search_code, search_web, environment, create_tool, chat.\n\n` +
+        `demote, mute_user, unmute_user, mutesch, antis, plogme_mode, send_file, make_pdf, zip, search_file, search_code, search_web, environment, create_tool, mission_create, mission_list, mission_status, mission_pause, mission_resume, mission_rollback, dependency_status, suggest_dependency, install_dependency, project_index, health, research_web, inspect_media, chat.\n\n` +
         `JSON shapes:\n` +
         `- {"action":"run_command","command":"<name>","args":"<optional>"}\n` +
         `- {"action":"create_file","path":"src/Commands/User/name.js","content":"<FULL file content>"}\n` +
@@ -1142,6 +1189,10 @@ function buildClassifierPrompt(userText) {
         `- {"action":"send_file","path":"<path>"} {"action":"make_pdf","path":"<path>"|"content":"<text>"} {"action":"zip","files":["<path1>"]}\n` +
         `- {"action":"search_file"|"search_code","query":"<text>"} {"action":"search_web","query":"<text>"}\n` +
         `- {"action":"environment"} {"action":"create_tool","name":"<name>","content":"<full JS module>"}\n` +
+        `- {"action":"mission_create","objective":"<goal>","plan":["<step>"]} {"action":"mission_list"} {"action":"mission_status","id":"<id>"}\n` +
+        `- {"action":"mission_pause|mission_resume|mission_rollback","id":"<id>"}\n` +
+        `- {"action":"dependency_status|suggest_dependency|install_dependency","package":"<name>"}\n` +
+        `- {"action":"project_index"} {"action":"health"} {"action":"research_web","query":"<topic>"} {"action":"inspect_media"}\n` +
         `- {"action":"chat","reply":"<your short reply>"}\n\n` +
         `Available commands (ONLY use these exact names for run_command):\n` +
         (realCommands.length ? realCommands.slice(0, 160).join(', ') : '(command list unavailable)') +
@@ -1169,7 +1220,13 @@ async function executeIntent(sock, m, opts, intent) {
     try {
         opts = { ...opts, sendMessage: opts?.sendMessage || (typeof sock?.sendMessage === 'function' ? sock.sendMessage.bind(sock) : null) };
         const action = intent.action;
-        if (['create_file', 'edit_file', 'create_tool', 'send_file', 'search_file', 'search_code', 'search_web', 'make_pdf', 'zip'].includes(action)) {
+        const missionActions = new Set(['create_file', 'edit_file', 'create_tool', 'send_file', 'make_pdf', 'zip', 'install_dependency', 'project_index', 'health', 'research_web', 'inspect_media']);
+        if (missionActions.has(action) && !opts.missionId) {
+            const mission = missions.createMission({ chat: m.chat, owner: m.sender || '', objective: String(intent.objective || intent.query || intent.path || action).slice(0, 1000), plan: ['inspect workspace and dependencies', `execute ${action}`, 'verify result and report'] });
+            opts.missionId = mission.id;
+            missions.updateMission(mission.id, { status: 'running' });
+        }
+        if (['create_file', 'edit_file', 'create_tool', 'send_file', 'search_file', 'search_code', 'search_web', 'make_pdf', 'zip', 'mission_create', 'mission_rollback', 'install_dependency', 'project_index', 'health', 'research_web', 'inspect_media'].includes(action)) {
             await reportProgress(opts, `starting ${action.replace(/_/g, ' ')}…`);
         }
 
@@ -1193,6 +1250,7 @@ async function executeIntent(sock, m, opts, intent) {
                 if (!content.trim()) { await opts.reply('_✘ No file content provided_'); return { handled: true }; }
                 if (name) content = ensureCommandModule(name, content);
                 const res = await writeFileWithAgentFix(abs, content, opts);
+                if (opts.missionId) { missions.addEvent(opts.missionId, res.ok ? 'verified' : 'failed', res.ok ? `Created and syntax-checked ${display}` : `Syntax failure in ${display}`); missions.updateMission(opts.missionId, { status: res.ok ? 'completed' : 'blocked', files: [display] }); }
                 logOp('create', `${display}${name ? ` (command .${name})` : ''}`);
                 if (res.ok) {
                     if (display.includes('Commands')) { try { require('../../Plugin/crysLoadCmd').loadCommands(); } catch {} }
@@ -1233,7 +1291,9 @@ async function executeIntent(sock, m, opts, intent) {
                     next = String(intent.content || '');
                 }
                 if (!next.trim()) { await opts.reply('_✘ No replacement content provided_'); return { handled: true }; }
+                if (opts.missionId) missions.snapshotFiles(opts.missionId, [display]);
                 const res = await writeFileWithAgentFix(abs, next, opts);
+                if (opts.missionId) { missions.addEvent(opts.missionId, res.ok ? 'verified' : 'failed', res.ok ? `Edited and syntax-checked ${display}` : `Syntax failure in ${display}`); missions.updateMission(opts.missionId, { status: res.ok ? 'completed' : 'blocked', files: [display] }); }
                 logOp('edit', display);
                 if (res.ok) {
                     if (display.includes('Commands')) { try { require('../../Plugin/crysLoadCmd').loadCommands(); } catch {} }
@@ -1560,6 +1620,132 @@ async function executeIntent(sock, m, opts, intent) {
                 return { handled: true };
             }
 
+            case 'mission_create': {
+                const objective = String(intent.objective || intent.goal || intent.text || '').trim();
+                if (!objective) { await opts.reply('_✘ Tell me what the mission should accomplish_'); return { handled: true }; }
+                const plan = Array.isArray(intent.plan) ? intent.plan : String(intent.plan || '').split(/\s*[,;]\s*/).filter(Boolean);
+                const mission = missions.createMission({ chat: m.chat, owner: m.sender || '', objective, plan });
+                if (intent.files) {
+                    const files = Array.isArray(intent.files) ? intent.files : [intent.files];
+                    missions.snapshotFiles(mission.id, files);
+                }
+                await opts.reply(`_*🧭 Mission created:*_ ${mission.id}\n\n*Objective:* ${mission.objective}\n` + (mission.plan.length ? mission.plan.map((step, i) => `${i + 1}. ${step}`).join('\n') : '_No plan supplied; I will inspect and plan the next steps._'));
+                await sendMissionControls(sock, m, mission);
+                return { handled: true };
+            }
+
+            case 'mission_list': {
+                const items = missions.listMissions({ status: intent.status });
+                await opts.reply(items.length
+                    ? `_*🧭 Recent PLOGME missions*_\n` + items.slice(0, 12).map(item => `• ${item.id} — ${item.status} — ${item.objective.slice(0, 90)}`).join('\n')
+                    : '_No PLOGME missions have been recorded yet._');
+                return { handled: true };
+            }
+
+            case 'mission_status': {
+                const item = missions.getMission(intent.id || intent.mission || intent.missionId) || missions.listMissions()[0];
+                if (!item) { await opts.reply('_✘ Mission not found_'); return { handled: true }; }
+                const lastEvents = (item.events || []).slice(-8).map(event => `• ${event.at.slice(11, 19)} ${event.message}`).join('\n');
+                await opts.reply(`_*🧭 ${item.id}*_\n*Status:* ${item.status}\n*Step:* ${item.step}/${item.plan.length || '?'}\n*Objective:* ${item.objective}\n\n${lastEvents || '_No events yet._'}`);
+                return { handled: true };
+            }
+
+            case 'mission_pause':
+            case 'mission_resume': {
+                const item = missions.getMission(intent.id || intent.mission || intent.missionId);
+                if (!item) { await opts.reply('_✘ Mission not found_'); return { handled: true }; }
+                const nextStatus = action === 'mission_pause' ? 'paused' : 'running';
+                missions.updateMission(item.id, { status: nextStatus });
+                missions.addEvent(item.id, nextStatus, `Mission ${nextStatus}`);
+                await opts.reply(`_*${nextStatus === 'paused' ? '⏸️' : '▶️'} ${item.id}: ${nextStatus.toUpperCase()}*_`);
+                return { handled: true };
+            }
+
+            case 'mission_rollback': {
+                const item = missions.getMission(intent.id || intent.mission || intent.missionId);
+                if (!item) { await opts.reply('_✘ Mission not found_'); return { handled: true }; }
+                const result = missions.rollbackMission(item.id, intent.snapshot);
+                await opts.reply(result.ok ? `_*↶ Rollback complete:*_ ${item.id}\n${result.files.join('\n') || 'No files restored'}` : `_✘ Rollback failed:_ ${result.error}`);
+                return { handled: true };
+            }
+
+            case 'dependency_status': {
+                const raw = intent.package || intent.name || intent.spec;
+                const status = dependencies.localStatus(raw);
+                if (!status.ok) { await opts.reply(`_✘ ${status.error}_`); return { handled: true }; }
+                await opts.reply(`_*📦 Dependency status*_\n• Package: ${status.name}\n• Requested: ${status.spec}\n• Declared: ${status.declared || 'not declared'}\n• Installed: ${status.installed || 'missing'}\n• State: ${status.missing ? 'MISSING' : 'READY'}`);
+                return { handled: true };
+            }
+
+            case 'suggest_dependency': {
+                const raw = intent.package || intent.name || intent.spec;
+                const info = await dependencies.registryInfo(raw);
+                if (!info.ok) { await opts.reply(`_✘ Dependency lookup failed:_ ${info.error}`); return { handled: true }; }
+                await opts.reply(`_*📦 Dependency suggestion*_\n• Package: ${info.name}\n• Latest: ${info.latest || 'unknown'}\n• Description: ${info.description || 'not provided'}\n• Status: ${info.deprecated ? `DEPRECATED — ${info.deprecated}` : 'not marked deprecated'}\n\nUse “install ${info.name}” when you want me to add it explicitly.`);
+                return { handled: true };
+            }
+
+            case 'install_dependency': {
+                const raw = intent.package || intent.name || intent.spec;
+                const spec = dependencies.packageSpec(raw);
+                if (!spec) { await opts.reply('_✘ Invalid package name or version spec_'); return { handled: true }; }
+                await reportProgress(opts, `checking ${spec} in the npm registry…`);
+                const info = await dependencies.registryInfo(spec);
+                if (!info.ok) { await opts.reply(`_✘ I could not verify ${spec}: ${info.error}_`); return { handled: true }; }
+                if (info.deprecated) { await opts.reply(`_⚠️ ${spec} is deprecated: ${info.deprecated}. I will not install it automatically.`); return { handled: true }; }
+                await reportProgress(opts, `installing ${spec}; npm will update package.json and package-lock.json…`);
+                const result = dependencies.install(spec);
+                if (opts.missionId) { missions.addEvent(opts.missionId, result.ok ? 'verified' : 'failed', result.ok ? `Installed dependency ${spec}` : `Dependency installation failed for ${spec}`); missions.updateMission(opts.missionId, { status: result.ok ? 'completed' : 'blocked' }); }
+                if (!result.ok) { await opts.reply(`_✘ Dependency installation failed for ${spec}_\n\n${result.output.slice(-3000)}`); return { handled: true }; }
+                await opts.reply(`_*✅ Dependency installed:*_ ${spec}\n\n${result.output.slice(-1200)}`);
+                return { handled: true };
+            }
+
+            case 'project_index': {
+                await reportProgress(opts, 'indexing commands, aliases, imports, and syntax state…');
+                const index = buildProjectIndex();
+                const indexFile = path.join(DATA_DIR, 'plogme_project_index.json');
+                if (opts.missionId) { missions.addEvent(opts.missionId, 'verified', `Indexed ${index.commandCount} commands`); missions.updateMission(opts.missionId, { status: 'completed' }); }
+                saveJson(indexFile, index);
+                const failures = index.commands.filter(command => !command.syntax).slice(0, 8);
+                await opts.reply(`_*🗂️ Project index ready*_\n• Commands discovered: ${index.commandCount}\n• Categories: ${Object.keys(index.categories).length}\n• Syntax failures: ${index.syntaxFailures}\n• Saved: ${path.relative(ROOT, indexFile)}` + (failures.length ? `\n\n*Failures:*\n${failures.map(item => `• ${item.file}: ${item.syntaxError.slice(0, 160)}`).join('\n')}` : ''));
+                return { handled: true };
+            }
+
+            case 'health': {
+                await reportProgress(opts, 'running runtime, database, dependency, and critical-file health checks…');
+                const report = runHealthChecks();
+                if (opts.missionId) { missions.addEvent(opts.missionId, report.ok ? 'verified' : 'failed', report.ok ? 'Health checks passed' : `${report.failed.length} health checks failed`); missions.updateMission(opts.missionId, { status: report.ok ? 'completed' : 'blocked' }); }
+                await opts.reply(`_*🩺 CODY health: ${report.ok ? 'HEALTHY' : 'ATTENTION REQUIRED'}*_\n` + report.checks.map(item => `${item.ok ? '✅' : '❌'} ${item.name}: ${item.details}`).join('\n'));
+                return { handled: true };
+            }
+
+            case 'research_web': {
+                const query = String(intent.query || intent.topic || '').trim();
+                if (!query) { await opts.reply('_✘ Tell me what to research_'); return { handled: true }; }
+                await reportProgress(opts, `researching ${query.slice(0, 100)} and extracting source passages…`);
+                try {
+                    const research = await researchWeb(query, 3);
+                    if (!research.sources.length) { await opts.reply('_*🌐 Research completed, but no sources were found.*_'); return { handled: true }; }
+                    const sourceText = research.sources.map((source, i) => `SOURCE ${i + 1}: ${source.title}\nURL: ${source.url}\nEXCERPT: ${source.excerpt.slice(0, 1800)}`).join('\n\n');
+                    const synthesis = await askAI(`Research question: ${query}\n\nUse the sources below. Return a concise answer, distinguish facts from uncertainty, and cite sources as [1], [2], [3].\n\n${sourceText}`);
+                    await opts.reply(`_*🌐 Research: ${query}*_\n\n${synthesis || research.sources.map((source, i) => `[${i + 1}] ${source.title}\n${source.url}`).join('\n\n')}\n\n*Sources:*\n${research.sources.map((source, i) => `[${i + 1}] ${source.url}`).join('\n')}`);
+                    if (opts.missionId) { missions.addEvent(opts.missionId, 'verified', `Research completed with ${research.sources.length} sources`); missions.updateMission(opts.missionId, { status: 'completed' }); }
+                } catch (error) {
+                    if (opts.missionId) missions.recordError(opts.missionId, error);
+                    await opts.reply(`_✘ Research failed:_ ${error.message}`);
+                }
+                return { handled: true };
+            }
+
+            case 'inspect_media': {
+                const inspector = opts.inspectMedia || sock.inspectMedia || sock.describeMedia;
+                if (typeof inspector !== 'function') { await opts.reply('_✘ Multimodal inspection is not connected in this runtime yet. The tool contract is ready; provide an image/video/audio/document inspector callback._'); return { handled: true }; }
+                const result = await inspector(m.quoted || m, { prompt: intent.prompt || intent.query || 'Inspect this media and report actionable details.' });
+                await opts.reply(String(result || '_No media observations returned._'));
+                return { handled: true };
+            }
+
             case 'create_tool': {
                 const toolName = sanitizeCommandName(intent.name || intent.tool || 'plogme-tool');
                 const content = String(intent.content || intent.code || '').trim();
@@ -1567,6 +1753,7 @@ async function executeIntent(sock, m, opts, intent) {
                 const target = resolveWritePath(path.join('src', 'Commands', 'User', 'Tools', `${toolName}.js`));
                 if (!target) { await opts.reply('_✘ Invalid tool path_'); return { handled: true }; }
                 const res = await writeFileWithAgentFix(target.abs, content, opts);
+                if (opts.missionId) { missions.addEvent(opts.missionId, res.ok ? 'verified' : 'failed', res.ok ? `Created and syntax-checked tool ${target.display}` : `Syntax failure in tool ${target.display}`); missions.updateMission(opts.missionId, { status: res.ok ? 'completed' : 'blocked', files: [target.display] }); }
                 if (!res.ok) { await opts.reply('_*✘ Tool syntax failed:*_\n' + String(res.error || '').slice(0, 1400)); return { handled: true }; }
                 logOp('create_tool', target.display);
                 await opts.reply('_*✅ Tool created and syntax-checked:*_ ' + target.display);
@@ -1755,8 +1942,12 @@ async function execute(sock, m, opts) {
         // command too — no more strict phrasing. @crysnovax—FIX08-07-26
         if (privileged) {
             const body = isCommand ? text.slice(prefix.length).trim() : text;
-            const isPlogmeInvocation = /^(plogme|plg|plog)(\s|$)/i.test(body);
-
+                        const isPlogmeInvocation = /^(plogme|plg|plog)(\s|$)/i.test(body);
+            const missionButton = body.match(/^(mission_status|mission_pause|mission_resume|mission_rollback):([A-Z0-9-]+)$/i);
+            if (missionButton) {
+                await executeIntent(sock, m, opts, { action: missionButton[1].toLowerCase(), id: missionButton[2] });
+                return true;
+            }
             // A prefixed ".plogme <sub>" (e.g. "/plogme off") is OWNED by the
             // router command src/Commands/AI/plogme.js, which already replied
             // ("✖ DISABLED"). Running the control intents again made every

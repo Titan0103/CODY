@@ -79,7 +79,15 @@ module.exports = {
 ` +
             `│ • plogme restart — restart the bot
 ` +
-            `│ • plogme dev on|off — developer mode
+            `│ • .plogme dev on|off (developer mode)
+` +
+            `│ • Ask: "start a mission to fix X" / "show my missions"
+` +
+            `│ • Ask: "suggest/install dependency <package>"
+` +
+            `│ • Ask: "index the project" / "run a health check"
+` +
+            `│ • Ask: "research <topic> on the web"
 ` +
             `╰──────────────────`;
 
