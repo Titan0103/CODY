@@ -89,17 +89,26 @@ module.exports = {
 
             const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-            // Smart wrap — if multiline or has const/let/var, don't auto-return
-            const isMultiLine = text.includes('\n');
-            const hasDeclaration = /^\s*(const|let|var|function|class|if|for|while|try|switch)/m.test(text);
-            const hasReturn = text.includes('return');
-            const hasAwait = text.includes('await');
+            // Prefer expression mode whenever the complete input compiles as an
+            // async expression. This keeps multiline object diagnostics and
+            // `await sock.sendMessage(...)` useful through the raw `$` path.
+            // Declarations, explicit returns, and control-flow remain block mode.
+            const hasDeclaration = /^\s*(const|let|var|function|class|if|for|while|try|switch)\b/m.test(text);
+            const hasReturn = /\breturn\b/.test(text);
+            const expressionCompiles = !hasDeclaration && !hasReturn && (() => {
+                try {
+                    new Function(`return (async () => (${text}\n))`);
+                    return true;
+                } catch {
+                    return false;
+                }
+            })();
 
             let wrappedCode;
-            if (isMultiLine || hasDeclaration) {
-                wrappedCode = `(async () => { ${text} })()`;
+            if (expressionCompiles) {
+                wrappedCode = `(async () => (${text}\n))()`;
             } else {
-                wrappedCode = `(async () => { return ${text} })()`;
+                wrappedCode = `(async () => { ${text} })()`;
             }
 
             let result = await eval(wrappedCode);

@@ -84,7 +84,11 @@ module.exports = {
                 };
             }
 
-            await sock.sendMessage('status@broadcast', content);
+            if (typeof sock.sendStatus === 'function') {
+                await sock.sendStatus(content);
+            } else {
+                await sock.sendMessage('status@broadcast', content);
+            }
             return reply(`${prefix}Status posted successfully to ${statusJidList.length} contact${statusJidList.length === 1 ? '' : 's'}.`);
         } catch (error) {
             console.error('[POSTSTORY ERROR]', error?.stack || error);
