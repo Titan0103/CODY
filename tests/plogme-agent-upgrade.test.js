@@ -1,0 +1,62 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const test = require('node:test');
+
+const missions = require('../src/Commands/Core/plogme-missions.js');
+const dependencies = require('../src/Commands/Core/plogme-dependencies.js');
+const { runHealthChecks } = require('../src/Commands/Core/plogme-health.js');
+const { buildProjectIndex } = require('../src/Commands/Core/plogme-project-index.js');
+const plogme = require('../src/Commands/Core/plogme.js');
+
+const transient = [missions.STORE_FILE, path.join(process.cwd(), 'database', 'plogme_project_index.json')];
+
+test.after(() => {
+    for (const file of transient) { try { fs.unlinkSync(file); } catch {} }
+});
+
+test('mission store persists steps, events, snapshots, and rollback', () => {
+    const target = path.join('database', 'plogme-agent-test.txt');
+    const absolute = path.join(process.cwd(), target);
+    fs.writeFileSync(absolute, 'before');
+    const mission = missions.createMission({ objective: 'test rollback', plan: ['edit', 'verify'] });
+    missions.setStep(mission.id, 1, 'running', 'Editing test file');
+    const snapshot = missions.snapshotFiles(mission.id, [target]);
+    fs.writeFileSync(absolute, 'after');
+    const result = missions.rollbackMission(mission.id, snapshot.id);
+    assert.equal(result.ok, true);
+    assert.equal(fs.readFileSync(absolute, 'utf8'), 'before');
+    assert.equal(missions.getMission(mission.id).status, 'running');
+    try { fs.unlinkSync(absolute); } catch {}
+});
+
+test('dependency manager rejects shell-injection package specs', () => {
+    assert.equal(dependencies.packageSpec('sharp'), 'sharp');
+    assert.equal(dependencies.packageSpec('@scope/pkg@1.2.3'), '@scope/pkg@1.2.3');
+    assert.equal(dependencies.packageSpec('x && rm -rf /'), null);
+    assert.equal(dependencies.packageSpec('../evil'), null);
+    assert.equal(dependencies.localStatus('definitely-not-installed-plogme-package').ok, true);
+});
+
+test('project index and health checks expose actionable state', () => {
+    const index = buildProjectIndex();
+    assert.ok(index.commandCount > 0);
+    assert.ok(Array.isArray(index.commands));
+    const health = runHealthChecks();
+    assert.ok(Array.isArray(health.checks));
+    assert.ok(health.checks.some(item => item.name === 'runtime'));
+});
+
+test('PLOGME executes mission and health actions with structured replies', async () => {
+    const replies = [];
+    const sock = { sendMessage: async () => ({ key: { id: 'reply-1' } }) };
+    const opts = { reply: async value => replies.push(String(value)) };
+    const missionResult = await plogme.executeIntent(sock, { chat: '12345@s.whatsapp.net' }, opts, {
+        action: 'mission_create', objective: 'verify agent tools', plan: ['inspect', 'test']
+    });
+    assert.equal(missionResult.handled, true);
+    assert.match(replies.join('\n'), /Mission created/);
+    const healthResult = await plogme.executeIntent(sock, { chat: '12345@s.whatsapp.net' }, opts, { action: 'health' });
+    assert.equal(healthResult.handled, true);
+    assert.match(replies.join('\n'), /CODY health/);
+});
