@@ -258,6 +258,8 @@ function environmentSnapshot() {
         uptimeSeconds: Math.round(process.uptime()),
         memoryMb: Math.round(process.memoryUsage().rss / 1024 / 1024),
         commandsDir: fs.existsSync(USER_CMD_DIR),
+        commandRoot: path.join(ROOT, 'src', 'Commands'),
+        runtimeSource: 'process.cwd() — bot process workspace; panel visibility is not assumed',
         outputDir: fs.existsSync(OUT_DIR),
         files: walkWorkspace(ROOT, 2).length
     };
@@ -1090,6 +1092,16 @@ async function handleControlIntent(sock, m, opts, text) {
         const res = await executeIntent(sock, m, opts, { action: 'make_pdf', path: (pdfMatch[1] || '').trim() || undefined });
         if (res.handled) return true;
     }
+    const listFilesMatch = text.match(/^(?:plogme\s+)?(?:list|show|scan|check)\s+(?:the\s+)?(?:(?:bot|panel|workspace|project)\s+)?(?:files|folder|directory)(?:\s+(.+))?$/i);
+    if (listFilesMatch) {
+        const res = await executeIntent(sock, m, opts, { action: 'list_files', path: listFilesMatch[1] || '' });
+        if (res.handled) return true;
+    }
+    const renameMatch = text.match(/^(?:plogme\s+)?rename\s+(.+?)\s+(?:to|as)\s+(.+)$/i);
+    if (renameMatch) {
+        const res = await executeIntent(sock, m, opts, { action: 'rename_file', from: renameMatch[1].trim(), to: renameMatch[2].trim() });
+        if (res.handled) return true;
+    }
     const zipMatch = text.match(/^(?:plogme\s+)?zip\s+(.+)$/i);
     if (zipMatch) {
         const res = await executeIntent(sock, m, opts, { action: 'zip', files: zipMatch[1].split(/\s+/).filter(Boolean) });
@@ -1137,7 +1149,7 @@ const KNOWN_ACTIONS = new Set([
     // FIX12-08-26: file delivery — send files, generate PDFs, zip archives
     'send_file', 'make_pdf', 'zip', 'search_file', 'search_code', 'search_web', 'environment', 'create_tool',
     'mission_create', 'mission_list', 'mission_status', 'mission_pause', 'mission_resume', 'mission_rollback',
-    'dependency_status', 'suggest_dependency', 'install_dependency', 'project_index', 'health', 'research_web', 'inspect_media',
+    'dependency_status', 'suggest_dependency', 'install_dependency', 'project_index', 'health', 'research_web', 'inspect_media', 'list_files', 'rename_file',
 ]);
 
 // Strip markdown fences / extra text and pull out the first JSON object.
@@ -1211,13 +1223,15 @@ function buildClassifierPrompt(userText) {
         `- "run health check / diagnose bot" -> {"action":"health"}\n` +
         `- "research X on the web" -> {"action":"research_web","query":"X"}\n` +
         `- "inspect/analyze this image, video, audio, or document" -> {"action":"inspect_media"}\n` +
+        `- "list/scan/show files in the bot folder or panel" -> {"action":"list_files","path":"<optional relative folder>"}\n` +
+        `- "rename X to Y" -> {"action":"rename_file","from":"<source>","to":"<destination>"}\n` +
         `- "make/generate/create a PDF from X" / "convert X to pdf" / "write a pdf about/on X" -> {"action":"make_pdf","path":"<path or topic>"} (or "content":"<text>" for pasted text)\n` +
         `- "zip/compress these files" -> {"action":"zip","files":["<path1>","<path2>"]}\n` +
         `(for user actions the target comes from the @mention or the quoted message, so "mentioned" is the right value)\n\n` +
         `Possible actions: run_command, create_file, edit_file, delete_file, toggle_command, ` +
         `list_commands, reload, restart, status, memory, clear_memory, remember, forget, ` +
         `test, fix_code, train, personality, dev, set_pp, group_name, group_pp, kick, promote, ` +
-        `demote, mute_user, unmute_user, mutesch, antis, plogme_mode, send_file, make_pdf, zip, search_file, search_code, search_web, environment, create_tool, mission_create, mission_list, mission_status, mission_pause, mission_resume, mission_rollback, dependency_status, suggest_dependency, install_dependency, project_index, health, research_web, inspect_media, chat.\n\n` +
+        `demote, mute_user, unmute_user, mutesch, antis, plogme_mode, send_file, make_pdf, zip, search_file, search_code, search_web, environment, create_tool, mission_create, mission_list, mission_status, mission_pause, mission_resume, mission_rollback, dependency_status, suggest_dependency, install_dependency, project_index, health, research_web, inspect_media, list_files, rename_file, chat.\n\n` +
         `JSON shapes:\n` +
         `- {"action":"run_command","command":"<name>","args":"<optional>"}\n` +
         `- {"action":"create_file","path":"src/Commands/User/name.js","content":"<FULL file content>"}\n` +
@@ -1242,6 +1256,7 @@ function buildClassifierPrompt(userText) {
         `- {"action":"mission_pause|mission_resume|mission_rollback","id":"<id>"}\n` +
         `- {"action":"dependency_status|suggest_dependency|install_dependency","package":"<name>"}\n` +
         `- {"action":"project_index"} {"action":"health"} {"action":"research_web","query":"<topic>"} {"action":"inspect_media"}\n` +
+        `- {"action":"list_files","path":"<relative folder>"} {"action":"rename_file","from":"<source>","to":"<destination>"}\n` +
         `- {"action":"chat","reply":"<your short reply>"}\n\n` +
         `Available commands (ONLY use these exact names for run_command):\n` +
         (realCommands.length ? realCommands.slice(0, 160).join(', ') : '(command list unavailable)') +
@@ -1766,6 +1781,46 @@ async function executeIntent(sock, m, opts, intent) {
                 const report = runHealthChecks();
                 if (opts.missionId) { missions.addEvent(opts.missionId, report.ok ? 'verified' : 'failed', report.ok ? 'Health checks passed' : `${report.failed.length} health checks failed`); missions.updateMission(opts.missionId, { status: report.ok ? 'completed' : 'blocked' }); }
                 await opts.reply(`_*🩺 CODY health: ${report.ok ? 'HEALTHY' : 'ATTENTION REQUIRED'}*_\n` + report.checks.map(item => `${item.ok ? '✅' : '❌'} ${item.name}: ${item.details}`).join('\n'));
+                return { handled: true };
+            }
+
+            case 'list_files': {
+                const requested = String(intent.path || '').trim();
+                const base = requested ? resolveReadPath(requested)?.abs : ROOT;
+                if (!base || !fs.existsSync(base) || !fs.statSync(base).isDirectory()) { await opts.reply(`_✘ Folder not found inside the live workspace:_ ${requested || ROOT}`); return { handled: true }; }
+                const allFiles = walkWorkspace(base, 4);
+                const files = allFiles.slice(0, 120);
+                const relativeFiles = files.map(file => path.relative(ROOT, file) || path.basename(file));
+                await opts.reply(`_*🗂️ LIVE WORKSPACE FILES*_\n*Runtime root:* \`${ROOT}\`\n*Folder:* \`${path.relative(ROOT, base) || '.'}\`\n*Files found:* ${allFiles.length}${allFiles.length > 120 ? ' (first 120 shown)' : ''}\n\n${relativeFiles.length ? relativeFiles.map(file => `• ${file}`).join('\n') : '_No files found._'}`);
+                return { handled: true };
+            }
+
+            case 'rename_file': {
+                const source = resolveReadPath(intent.from || intent.source || intent.path);
+                const destinationRaw = String(intent.to || intent.destination || '').trim().replace(/^\.[\\/]/, '');
+                const destination = resolveWritePath(destinationRaw);
+                if (!source) { await opts.reply('_✘ Source file was not found inside the live runtime workspace_'); return { handled: true }; }
+                if (!destination || !destinationRaw) { await opts.reply('_✘ Destination path is invalid or outside the live runtime workspace_'); return { handled: true }; }
+                if (fs.existsSync(destination.abs)) { await opts.reply(`_✘ Destination already exists:_ \`${destination.display}\``); return { handled: true }; }
+                if (opts.missionId) missions.snapshotFiles(opts.missionId, [source.display]);
+                try {
+                    fs.mkdirSync(path.dirname(destination.abs), { recursive: true });
+                    fs.renameSync(source.abs, destination.abs);
+                    let loaded = null;
+                    let reloadWarning = '';
+                    try {
+                        const { loadCommands } = require('../../Plugin/crysLoadCmd');
+                        loaded = loadCommands();
+                    } catch (reloadError) {
+                        reloadWarning = `\n⚠️ Command-loader refresh could not run: ${reloadError.message}`;
+                    }
+                    logOp('rename', `${source.display} -> ${destination.display}`);
+                    if (opts.missionId) { missions.addEvent(opts.missionId, 'verified', `Renamed ${source.display} to ${destination.display}${loaded === null ? '; loader refresh unavailable' : `; reloaded ${loaded} commands`}`); missions.updateMission(opts.missionId, { status: 'completed', files: [source.display, destination.display] }); }
+                    await opts.reply(`_*✅ Rename verified*_\n\`${source.display}\` → \`${destination.display}\`\n*Command registry:* ${loaded === null ? 'refresh unavailable' : `reloaded ${loaded} entries`}${reloadWarning}`);
+                } catch (error) {
+                    if (opts.missionId) missions.recordError(opts.missionId, error);
+                    await opts.reply(`_✘ Rename failed:_ ${error.message}`);
+                }
                 return { handled: true };
             }
 
