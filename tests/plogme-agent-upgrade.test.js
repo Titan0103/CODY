@@ -213,3 +213,31 @@ test('PLOGME uses the verified CDN path without attempting direct code attachmen
     assert.match(replies.at(-1), /Delivery:\* cdn/);
     assert.match(replies.at(-1), /cdn-message-1/);
 });
+
+test('PLOGME keeps the file mission alive until CDN processing and send receipt finish', async () => {
+    const replies = [];
+    const sent = [];
+    let releaseUpload;
+    let settled = false;
+    const uploadPending = new Promise(resolve => { releaseUpload = resolve; });
+    const pending = plogme.executeIntent({}, { chat: '12345@s.whatsapp.net' }, {
+        reply: async value => replies.push(String(value)),
+        cdnUpload: async buffer => {
+            await uploadPending;
+            return { url: 'https://cdn.crysnovax.link/raw/lifecycle.txt', buffer: Buffer.from(buffer) };
+        },
+        sendMessage: async (jid, content) => {
+            sent.push({ jid, content });
+            return { key: { id: 'lifecycle-message-1' } };
+        }
+    }, { action: 'send_file', path: 'src/Commands/Owner/mention.js' }).then(value => { settled = true; return value; });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(settled, false);
+    assert.ok(replies.some(reply => /starting send file|uploading/.test(reply)));
+    releaseUpload();
+    const result = await pending;
+    assert.equal(result.handled, true);
+    assert.equal(settled, true);
+    assert.equal(sent.length, 1);
+    assert.match(replies.at(-1), /lifecycle-message-1/);
+});
