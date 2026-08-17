@@ -75,3 +75,87 @@ test('PLOGME rejects HTML and 414 upstream payloads', () => {
     assert.equal(plogme.extractAIText({ response: 'normal answer' }, 200), 'normal answer');
     assert.equal(plogme.extractAIText({ response: 'bad' }, 502), '');
 });
+
+test('PLOGME routes natural-language file requests to send_file and verifies delivery', async () => {
+    const replies = [];
+    const sent = [];
+    const sock = {
+        sendMessage: async (jid, content) => {
+            sent.push({ jid, content });
+            return { key: { id: 'file-message-1' } };
+        }
+    };
+    const handled = await plogme.handleControlIntent(sock, { chat: '12345@s.whatsapp.net', key: {} }, {
+        reply: async value => replies.push(String(value)),
+        sendMessage: sock.sendMessage
+    }, 'please send me src/Commands/Owner/mention.js file');
+    assert.equal(handled, true);
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].content.fileName, 'mention.js');
+    assert.match(replies.at(-1), /File sent/);
+    assert.match(replies.at(-1), /file-message-1/);
+});
+
+test('PLOGME does not claim a file was sent without a WhatsApp message key', async () => {
+    const replies = [];
+    const sock = { sendMessage: async () => ({}) };
+    const result = await plogme.executeIntent(sock, { chat: '12345@s.whatsapp.net', key: {} }, {
+        reply: async value => replies.push(String(value)),
+        sendMessage: sock.sendMessage
+    }, { action: 'send_file', path: 'src/Commands/Owner/mention.js' });
+    assert.equal(result.handled, true);
+    assert.match(replies.at(-1), /no delivery key/i);
+    assert.doesNotMatch(replies.at(-1), /File sent/);
+});
+
+test('PLOGME lists the actual runtime workspace instead of a simulated Bot folder', async () => {
+    const replies = [];
+    const result = await plogme.executeIntent({}, { chat: '12345@s.whatsapp.net' }, {
+        reply: async value => replies.push(String(value))
+    }, { action: 'list_files', path: 'src/Commands/Owner' });
+    assert.equal(result.handled, true);
+    assert.match(replies.at(-1), /LIVE WORKSPACE FILES/);
+    assert.match(replies.at(-1), /Runtime root:/);
+    assert.match(replies.at(-1), /mention\.js/);
+    assert.doesNotMatch(replies.at(-1), /Files found: 5\s*\n\s*• ping\.js/);
+});
+
+test('PLOGME rename_file changes a real path and reports loader reconciliation', async () => {
+    const source = path.join(process.cwd(), 'database', 'plogme-rename-source.txt');
+    const destination = path.join(process.cwd(), 'database', 'plogme-rename-destination.gsm');
+    fs.writeFileSync(source, 'runtime rename test');
+    const replies = [];
+    try {
+        const result = await plogme.executeIntent({}, { chat: '12345@s.whatsapp.net' }, {
+            reply: async value => replies.push(String(value))
+        }, { action: 'rename_file', from: 'database/plogme-rename-source.txt', to: 'database/plogme-rename-destination.gsm' });
+        assert.equal(result.handled, true);
+        assert.equal(fs.existsSync(source), false);
+        assert.equal(fs.existsSync(destination), true);
+        assert.match(replies.at(-1), /Rename verified/);
+        assert.match(replies.at(-1), /Command registry:\* (?:reloaded|refresh unavailable)/);
+    } finally {
+        try { fs.unlinkSync(source); } catch {}
+        try { fs.unlinkSync(destination); } catch {}
+    }
+});
+
+test('PLOGME runCommandAction executes a real registered menubit command', async () => {
+    const { registerCommand } = require('../src/Plugin/crysCmd');
+    const replies = [];
+    registerCommand({
+        name: 'menu',
+        alias: ['menubit'],
+        execute: async (sock, m, { reply }) => reply('REAL MENUBIT COMMAND EXECUTED')
+    });
+    const result = await plogme.runCommandAction({}, { chat: '12345@s.whatsapp.net' }, {
+        reply: async value => replies.push(String(value))
+    }, 'menubit');
+    assert.equal(result, true);
+    assert.deepEqual(replies, ['REAL MENUBIT COMMAND EXECUTED']);
+});
+
+test('PLOGME normalizes malformed emphasis without altering ordinary bold markers', () => {
+    assert.equal(plogme.normalizePlogmeFormatting('**Running** and ****wrong****'), '**Running** and **wrong**');
+    assert.equal(plogme.normalizePlogmeFormatting('____ok____'), '__ok__');
+});

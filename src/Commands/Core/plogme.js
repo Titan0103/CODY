@@ -258,6 +258,8 @@ function environmentSnapshot() {
         uptimeSeconds: Math.round(process.uptime()),
         memoryMb: Math.round(process.memoryUsage().rss / 1024 / 1024),
         commandsDir: fs.existsSync(USER_CMD_DIR),
+        commandRoot: path.join(ROOT, 'src', 'Commands'),
+        runtimeSource: 'process.cwd() — bot process workspace; panel visibility is not assumed',
         outputDir: fs.existsSync(OUT_DIR),
         files: walkWorkspace(ROOT, 2).length
     };
@@ -429,8 +431,13 @@ const setDev = (v) => saveJson(FILES.dev, { enabled: !!v });
 /* ───────────────────────── persistent memory ───────────────────────── */
 const MAX_MEMORY_ITEM_CHARS = 2800;
 const MAX_PROMPT_CHARS = 14000;
+function normalizePlogmeFormatting(content) {
+    return String(content ?? '')
+        .replace(/\*{4,}/g, '**')
+        .replace(/_{4,}/g, '__');
+}
 function sanitizeMemoryContent(content) {
-    let value = String(content ?? '');
+    let value = normalizePlogmeFormatting(content);
     if (/<!doctype html|<html[\s>]|414 request-uri too large|request uri too large/i.test(value)) return '[upstream HTTP error omitted from memory]';
     // The pasted API envelope duplicated the entire system prompt inside a
     // `query` field. Keep only its response when such an envelope is received.
@@ -1056,9 +1063,13 @@ async function handleControlIntent(sock, m, opts, text) {
     // ── File delivery: send a file / make a PDF / zip files ──
     // These run BEFORE the lenient command matcher so "send X" can never be
     // misread as the .send (pay) economy command. (@crysnovax—FIX12-08-26)
-    const sendMatch = text.match(/^(?:plogme\s+)?(?:send|attach|share)\s+(?:me\s+|the\s+|this\s+|that\s+)*(?:file\s+)?(.+)$/i);
+    const sendMatch = text.match(/^(?:plogme\s+)?(?:(?:can|could)\s+you\s+|please\s+|pls\s+|hey\s+|i\s+need\s+you\s+to\s+)?(?:send|attach|share)\s+(?:me\s+|the\s+|this\s+|that\s+)*(?:file\s+)?(.+)$/i);
     if (sendMatch && sendMatch[1] && !/^(on|off|all)$/i.test(sendMatch[1].trim())) {
-        const want = sendMatch[1].trim();
+        const want = sendMatch[1].trim()
+            .replace(/\s+to\s+me[.!?]*$/i, '')
+            .replace(/\s+(?:file|document|attachment|now|please)[.!?]*$/i, '')
+            .replace(/^["'`]|["'`]$/g, '')
+            .trim();
         // "send me a pdf of X" → generate & send a PDF of that file/topic
         const wantPdf = /^(?:a\s+|an\s+|the\s+)?pdf\s+(?:of|from|for|on)\s+(.+)$/i.exec(want);
         if (wantPdf) {
@@ -1084,6 +1095,16 @@ async function handleControlIntent(sock, m, opts, text) {
     const pdfMatch = text.match(/^(?:plogme\s+)?(?:make|generate|convert|create)\s+(?:me\s+|a\s+|an\s+)?pdf(?:\s+(?:from|of|for)\s+(.+))?$/i);
     if (pdfMatch) {
         const res = await executeIntent(sock, m, opts, { action: 'make_pdf', path: (pdfMatch[1] || '').trim() || undefined });
+        if (res.handled) return true;
+    }
+    const listFilesMatch = text.match(/^(?:plogme\s+)?(?:list|show|scan|check)\s+(?:the\s+)?(?:(?:bot|panel|workspace|project)\s+)?(?:files|folder|directory)(?:\s+(.+))?$/i);
+    if (listFilesMatch) {
+        const res = await executeIntent(sock, m, opts, { action: 'list_files', path: listFilesMatch[1] || '' });
+        if (res.handled) return true;
+    }
+    const renameMatch = text.match(/^(?:plogme\s+)?rename\s+(.+?)\s+(?:to|as)\s+(.+)$/i);
+    if (renameMatch) {
+        const res = await executeIntent(sock, m, opts, { action: 'rename_file', from: renameMatch[1].trim(), to: renameMatch[2].trim() });
         if (res.handled) return true;
     }
     const zipMatch = text.match(/^(?:plogme\s+)?zip\s+(.+)$/i);
@@ -1133,7 +1154,7 @@ const KNOWN_ACTIONS = new Set([
     // FIX12-08-26: file delivery — send files, generate PDFs, zip archives
     'send_file', 'make_pdf', 'zip', 'search_file', 'search_code', 'search_web', 'environment', 'create_tool',
     'mission_create', 'mission_list', 'mission_status', 'mission_pause', 'mission_resume', 'mission_rollback',
-    'dependency_status', 'suggest_dependency', 'install_dependency', 'project_index', 'health', 'research_web', 'inspect_media',
+    'dependency_status', 'suggest_dependency', 'install_dependency', 'project_index', 'health', 'research_web', 'inspect_media', 'list_files', 'rename_file',
 ]);
 
 // Strip markdown fences / extra text and pull out the first JSON object.
@@ -1207,13 +1228,15 @@ function buildClassifierPrompt(userText) {
         `- "run health check / diagnose bot" -> {"action":"health"}\n` +
         `- "research X on the web" -> {"action":"research_web","query":"X"}\n` +
         `- "inspect/analyze this image, video, audio, or document" -> {"action":"inspect_media"}\n` +
+        `- "list/scan/show files in the bot folder or panel" -> {"action":"list_files","path":"<optional relative folder>"}\n` +
+        `- "rename X to Y" -> {"action":"rename_file","from":"<source>","to":"<destination>"}\n` +
         `- "make/generate/create a PDF from X" / "convert X to pdf" / "write a pdf about/on X" -> {"action":"make_pdf","path":"<path or topic>"} (or "content":"<text>" for pasted text)\n` +
         `- "zip/compress these files" -> {"action":"zip","files":["<path1>","<path2>"]}\n` +
         `(for user actions the target comes from the @mention or the quoted message, so "mentioned" is the right value)\n\n` +
         `Possible actions: run_command, create_file, edit_file, delete_file, toggle_command, ` +
         `list_commands, reload, restart, status, memory, clear_memory, remember, forget, ` +
         `test, fix_code, train, personality, dev, set_pp, group_name, group_pp, kick, promote, ` +
-        `demote, mute_user, unmute_user, mutesch, antis, plogme_mode, send_file, make_pdf, zip, search_file, search_code, search_web, environment, create_tool, mission_create, mission_list, mission_status, mission_pause, mission_resume, mission_rollback, dependency_status, suggest_dependency, install_dependency, project_index, health, research_web, inspect_media, chat.\n\n` +
+        `demote, mute_user, unmute_user, mutesch, antis, plogme_mode, send_file, make_pdf, zip, search_file, search_code, search_web, environment, create_tool, mission_create, mission_list, mission_status, mission_pause, mission_resume, mission_rollback, dependency_status, suggest_dependency, install_dependency, project_index, health, research_web, inspect_media, list_files, rename_file, chat.\n\n` +
         `JSON shapes:\n` +
         `- {"action":"run_command","command":"<name>","args":"<optional>"}\n` +
         `- {"action":"create_file","path":"src/Commands/User/name.js","content":"<FULL file content>"}\n` +
@@ -1238,6 +1261,7 @@ function buildClassifierPrompt(userText) {
         `- {"action":"mission_pause|mission_resume|mission_rollback","id":"<id>"}\n` +
         `- {"action":"dependency_status|suggest_dependency|install_dependency","package":"<name>"}\n` +
         `- {"action":"project_index"} {"action":"health"} {"action":"research_web","query":"<topic>"} {"action":"inspect_media"}\n` +
+        `- {"action":"list_files","path":"<relative folder>"} {"action":"rename_file","from":"<source>","to":"<destination>"}\n` +
         `- {"action":"chat","reply":"<your short reply>"}\n\n` +
         `Available commands (ONLY use these exact names for run_command):\n` +
         (realCommands.length ? realCommands.slice(0, 160).join(', ') : '(command list unavailable)') +
@@ -1765,6 +1789,46 @@ async function executeIntent(sock, m, opts, intent) {
                 return { handled: true };
             }
 
+            case 'list_files': {
+                const requested = String(intent.path || '').trim();
+                const base = requested ? resolveReadPath(requested)?.abs : ROOT;
+                if (!base || !fs.existsSync(base) || !fs.statSync(base).isDirectory()) { await opts.reply(`_✘ Folder not found inside the live workspace:_ ${requested || ROOT}`); return { handled: true }; }
+                const allFiles = walkWorkspace(base, 4);
+                const files = allFiles.slice(0, 120);
+                const relativeFiles = files.map(file => path.relative(ROOT, file) || path.basename(file));
+                await opts.reply(`_*🗂️ LIVE WORKSPACE FILES*_\n*Runtime root:* \`${ROOT}\`\n*Folder:* \`${path.relative(ROOT, base) || '.'}\`\n*Files found:* ${allFiles.length}${allFiles.length > 120 ? ' (first 120 shown)' : ''}\n\n${relativeFiles.length ? relativeFiles.map(file => `• ${file}`).join('\n') : '_No files found._'}`);
+                return { handled: true };
+            }
+
+            case 'rename_file': {
+                const source = resolveReadPath(intent.from || intent.source || intent.path);
+                const destinationRaw = String(intent.to || intent.destination || '').trim().replace(/^\.[\\/]/, '');
+                const destination = resolveWritePath(destinationRaw);
+                if (!source) { await opts.reply('_✘ Source file was not found inside the live runtime workspace_'); return { handled: true }; }
+                if (!destination || !destinationRaw) { await opts.reply('_✘ Destination path is invalid or outside the live runtime workspace_'); return { handled: true }; }
+                if (fs.existsSync(destination.abs)) { await opts.reply(`_✘ Destination already exists:_ \`${destination.display}\``); return { handled: true }; }
+                if (opts.missionId) missions.snapshotFiles(opts.missionId, [source.display]);
+                try {
+                    fs.mkdirSync(path.dirname(destination.abs), { recursive: true });
+                    fs.renameSync(source.abs, destination.abs);
+                    let loaded = null;
+                    let reloadWarning = '';
+                    try {
+                        const { loadCommands } = require('../../Plugin/crysLoadCmd');
+                        loaded = loadCommands();
+                    } catch (reloadError) {
+                        reloadWarning = `\n⚠️ Command-loader refresh could not run: ${reloadError.message}`;
+                    }
+                    logOp('rename', `${source.display} -> ${destination.display}`);
+                    if (opts.missionId) { missions.addEvent(opts.missionId, 'verified', `Renamed ${source.display} to ${destination.display}${loaded === null ? '; loader refresh unavailable' : `; reloaded ${loaded} commands`}`); missions.updateMission(opts.missionId, { status: 'completed', files: [source.display, destination.display] }); }
+                    await opts.reply(`_*✅ Rename verified*_\n\`${source.display}\` → \`${destination.display}\`\n*Command registry:* ${loaded === null ? 'refresh unavailable' : `reloaded ${loaded} entries`}${reloadWarning}`);
+                } catch (error) {
+                    if (opts.missionId) missions.recordError(opts.missionId, error);
+                    await opts.reply(`_✘ Rename failed:_ ${error.message}`);
+                }
+                return { handled: true };
+            }
+
             case 'research_web': {
                 const query = String(intent.query || intent.topic || '').trim();
                 if (!query) { await opts.reply('_✘ Tell me what to research_'); return { handled: true }; }
@@ -1823,8 +1887,10 @@ async function executeIntent(sock, m, opts, intent) {
                 try { buffer = fs.readFileSync(resolved.abs); } catch (err) { await opts.reply(`_✘ Could not read \`${resolved.display}\`:_ ${err.message}`); return { handled: true }; }
                 let mime = 'application/octet-stream';
                 try { mime = require('mime-types').lookup(resolved.abs) || mime; } catch {}
+                let sent;
                 try {
-                    await opts.sendMessage(m.chat, {
+                    if (typeof opts.sendMessage !== 'function') throw new Error('WhatsApp sender is unavailable in this handler');
+                    sent = await opts.sendMessage(m.chat, {
                         document: buffer,
                         mimetype: mime,
                         fileName: path.basename(resolved.abs)
@@ -1833,8 +1899,13 @@ async function executeIntent(sock, m, opts, intent) {
                     await opts.reply(`_✘ Failed to send file:_ ${err.message}`);
                     return { handled: true };
                 }
-                logOp('send', `sent file ${resolved.display}`);
-                await opts.reply(`_*📄 File sent:*_ \`${resolved.display}\``);
+                const messageId = sent?.key?.id || sent?.messageId || sent?.id;
+                if (!messageId) {
+                    await opts.reply(`_⚠️ File was prepared, but WhatsApp returned no delivery key for \`${resolved.display}\`. I will not claim it was sent._`);
+                    return { handled: true };
+                }
+                logOp('send', `sent file ${resolved.display} (${messageId})`);
+                await opts.reply(`_*📄 File sent:*_ \`${resolved.display}\`\n_Message ID:_ ${messageId}`);
                 return { handled: true };
             }
 
@@ -2078,7 +2149,7 @@ async function execute(sock, m, opts) {
             if (retry && !REFUSAL_RE.test(retry)) answer = retry;
         }
 
-        const safeAnswer = sanitizeMemoryContent(answer);
+        const safeAnswer = normalizePlogmeFormatting(sanitizeMemoryContent(answer));
         if (safeAnswer === '[upstream HTTP error omitted from memory]') {
             await sock.sendPresenceUpdate('paused', m.chat).catch(() => {});
             await opts.reply('_🤖 The AI provider returned an HTTP error instead of an answer. I did not save that error into memory._');
@@ -2113,6 +2184,7 @@ module.exports = {
     addToMemory,
     clearMemory,
     sanitizeMemoryContent,
+    normalizePlogmeFormatting,
     MAX_PROMPT_CHARS,
     getFacts,
     addFact,
@@ -2128,6 +2200,8 @@ module.exports = {
     parseIntentJson,
     executeIntent,
     handleControlIntent,
+    runCommandAction,
+
     isAddressed,
     resolveWritePath,
     ensureCommandModule,
