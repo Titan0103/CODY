@@ -162,7 +162,7 @@ function toStyledName(text) {
 
 module.exports = {
     name: 'menu',
-    alias: ['help', 'list'],
+    alias: ['help', 'list', 'menubit'],
     desc: 'Show CODY AI menu with all commands',
     category: 'Bot',
     reactions: { start: '💬', success: '✨' },

@@ -139,3 +139,23 @@ test('PLOGME rename_file changes a real path and reports loader reconciliation',
         try { fs.unlinkSync(destination); } catch {}
     }
 });
+
+test('PLOGME runCommandAction executes a real registered menubit command', async () => {
+    const { registerCommand } = require('../src/Plugin/crysCmd');
+    const replies = [];
+    registerCommand({
+        name: 'menu',
+        alias: ['menubit'],
+        execute: async (sock, m, { reply }) => reply('REAL MENUBIT COMMAND EXECUTED')
+    });
+    const result = await plogme.runCommandAction({}, { chat: '12345@s.whatsapp.net' }, {
+        reply: async value => replies.push(String(value))
+    }, 'menubit');
+    assert.equal(result, true);
+    assert.deepEqual(replies, ['REAL MENUBIT COMMAND EXECUTED']);
+});
+
+test('PLOGME normalizes malformed emphasis without altering ordinary bold markers', () => {
+    assert.equal(plogme.normalizePlogmeFormatting('**Running** and ****wrong****'), '**Running** and **wrong**');
+    assert.equal(plogme.normalizePlogmeFormatting('____ok____'), '__ok__');
+});

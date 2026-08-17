@@ -431,8 +431,13 @@ const setDev = (v) => saveJson(FILES.dev, { enabled: !!v });
 /* ───────────────────────── persistent memory ───────────────────────── */
 const MAX_MEMORY_ITEM_CHARS = 2800;
 const MAX_PROMPT_CHARS = 14000;
+function normalizePlogmeFormatting(content) {
+    return String(content ?? '')
+        .replace(/\*{4,}/g, '**')
+        .replace(/_{4,}/g, '__');
+}
 function sanitizeMemoryContent(content) {
-    let value = String(content ?? '');
+    let value = normalizePlogmeFormatting(content);
     if (/<!doctype html|<html[\s>]|414 request-uri too large|request uri too large/i.test(value)) return '[upstream HTTP error omitted from memory]';
     // The pasted API envelope duplicated the entire system prompt inside a
     // `query` field. Keep only its response when such an envelope is received.
@@ -2144,7 +2149,7 @@ async function execute(sock, m, opts) {
             if (retry && !REFUSAL_RE.test(retry)) answer = retry;
         }
 
-        const safeAnswer = sanitizeMemoryContent(answer);
+        const safeAnswer = normalizePlogmeFormatting(sanitizeMemoryContent(answer));
         if (safeAnswer === '[upstream HTTP error omitted from memory]') {
             await sock.sendPresenceUpdate('paused', m.chat).catch(() => {});
             await opts.reply('_🤖 The AI provider returned an HTTP error instead of an answer. I did not save that error into memory._');
@@ -2179,6 +2184,7 @@ module.exports = {
     addToMemory,
     clearMemory,
     sanitizeMemoryContent,
+    normalizePlogmeFormatting,
     MAX_PROMPT_CHARS,
     getFacts,
     addFact,
@@ -2194,6 +2200,8 @@ module.exports = {
     parseIntentJson,
     executeIntent,
     handleControlIntent,
+    runCommandAction,
+
     isAddressed,
     resolveWritePath,
     ensureCommandModule,
