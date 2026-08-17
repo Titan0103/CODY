@@ -164,20 +164,24 @@ test('live .plogme wrapper propagates the WhatsApp file receipt', async () => {
     const aiCommand = require('../src/Commands/AI/plogme');
     const replies = [];
     const sent = [];
+    const binaryPath = path.join(process.cwd(), 'database', 'plogme-wrapper-test.bin');
+    fs.writeFileSync(binaryPath, Buffer.from([0, 1, 2, 3]));
     const sock = {
         sendMessage: async (jid, content, options) => {
             sent.push({ jid, content, options });
             return { key: { id: 'wrapper-file-message-1' } };
         }
     };
-    await aiCommand.execute(sock, { chat: '12345@s.whatsapp.net', key: {} }, {
-        args: ['send', 'file', 'src/Commands/Owner/mention.js'],
-        prefix: '.',
-        reply: async value => replies.push(String(value))
-    });
-    assert.equal(sent.length, 1);
-    assert.equal(sent[0].content.fileName, 'mention.js');
-    assert.match(replies.at(-1), /Message ID:.*wrapper-file-message-1/);
+    try {
+        await aiCommand.execute(sock, { chat: '12345@s.whatsapp.net', key: {} }, {
+            args: ['send', 'file', 'database/plogme-wrapper-test.bin'],
+            prefix: '.',
+            reply: async value => replies.push(String(value))
+        });
+        assert.equal(sent.length, 1);
+        assert.equal(sent[0].content.fileName, 'plogme-wrapper-test.bin');
+        assert.match(replies.at(-1), /Message ID:.*wrapper-file-message-1/);
+    } finally { try { fs.unlinkSync(binaryPath); } catch {} }
 });
 
 test('PLOGME converts raw upload URLs safely and classifies code files for CDN fallback', () => {
@@ -187,7 +191,7 @@ test('PLOGME converts raw upload URLs safely and classifies code files for CDN f
     assert.throws(() => plogme.toRawCdnUrl('file:///tmp/x.txt'), /non-HTTP URL/);
 });
 
-test('PLOGME uses the verified CDN fallback after direct code attachment failure', async () => {
+test('PLOGME uses the verified CDN path without attempting direct code attachment', async () => {
     const replies = [];
     const sent = [];
     const source = Buffer.from('module.exports = { name: \'cdn-fallback-test\' };');
@@ -195,7 +199,6 @@ test('PLOGME uses the verified CDN fallback after direct code attachment failure
         reply: async value => replies.push(String(value)),
         sendMessage: async (jid, content) => {
             sent.push({ jid, content });
-            if (sent.length === 1) throw new Error('direct upload unavailable');
             return { key: { id: 'cdn-message-1' } };
         },
         cdnUpload: async (buffer, filename) => {
@@ -205,8 +208,36 @@ test('PLOGME uses the verified CDN fallback after direct code attachment failure
         }
     }, { action: 'send_file', path: 'src/Commands/Owner/mention.js' });
     assert.equal(result.handled, true);
-    assert.equal(sent.length, 2);
-    assert.equal(sent[1].content.fileName, 'mention.js');
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].content.fileName, 'mention.js');
     assert.match(replies.at(-1), /Delivery:\* cdn/);
     assert.match(replies.at(-1), /cdn-message-1/);
+});
+
+test('PLOGME keeps the file mission alive until CDN processing and send receipt finish', async () => {
+    const replies = [];
+    const sent = [];
+    let releaseUpload;
+    let settled = false;
+    const uploadPending = new Promise(resolve => { releaseUpload = resolve; });
+    const pending = plogme.executeIntent({}, { chat: '12345@s.whatsapp.net' }, {
+        reply: async value => replies.push(String(value)),
+        cdnUpload: async buffer => {
+            await uploadPending;
+            return { url: 'https://cdn.crysnovax.link/raw/lifecycle.txt', buffer: Buffer.from(buffer) };
+        },
+        sendMessage: async (jid, content) => {
+            sent.push({ jid, content });
+            return { key: { id: 'lifecycle-message-1' } };
+        }
+    }, { action: 'send_file', path: 'src/Commands/Owner/mention.js' }).then(value => { settled = true; return value; });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(settled, false);
+    assert.ok(replies.some(reply => /starting send file|uploading/.test(reply)));
+    releaseUpload();
+    const result = await pending;
+    assert.equal(result.handled, true);
+    assert.equal(settled, true);
+    assert.equal(sent.length, 1);
+    assert.match(replies.at(-1), /lifecycle-message-1/);
 });
