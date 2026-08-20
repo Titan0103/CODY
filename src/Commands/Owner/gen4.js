@@ -38,7 +38,7 @@ const gen4 = {
             },
             footer: {
                 text: 'Telegram channel',
-                url: 'https://t.me/crysnovax'
+                url: 'https://t.me/CRYSNOVA_AI'
             }
         };
 

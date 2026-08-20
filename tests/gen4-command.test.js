@@ -24,7 +24,7 @@ test('gen4 sends the screenshot-style RichMenu through sock.richMenu', async () 
     assert.equal(calls[0].payload.body.cards.length, 2);
     assert.equal(calls[0].payload.body.cards[0].buttons.length, 3);
     assert.equal(calls[0].payload.body.cards[1].buttons[2].id, 'rich2');
-    assert.equal(calls[0].payload.footer.url, 'https://t.me/crysnovax');
+    assert.equal(calls[0].payload.footer.url, 'https://t.me/CRYSNOVA_AI');
     assert.match(replies[0], /gen4 richmenu requested.*gen4-1/i);
 });
 
