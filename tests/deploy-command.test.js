@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const deploy = require('../src/Commands/System/deploy');
 
-test('deploy opens the Gen4 menu with current panel and tutorial links', async () => {
+test('deploy opens the only Gen4 menu with current panel and tutorial links', async () => {
     const calls = [];
     const replies = [];
     const sock = {
@@ -21,36 +21,66 @@ test('deploy opens the Gen4 menu with current panel and tutorial links', async (
     assert.equal(payload.footer.url, 'https://sl.crysnovax.link/tutorial5');
     assert.equal(payload.body.cards[0].buttons[0].id, '.deploy step1');
     assert.equal(payload.body.cards[1].buttons[0].id, '.deploy step4');
-    assert.match(replies[0], /Choose a deployment step/);
+    assert.equal(replies.length, 0);
     assert.deepEqual(deploy.alias, ['pair']);
 });
 
-test('step3 returns current pairing instructions and routes back to the menu', async () => {
-    const calls = [];
-    const replies = [];
+test('step1 sends one quoted rich table and no second Gen4 menu', async () => {
+    const messages = [];
+    const menus = [];
     const sock = {
-        richMenu: async (...args) => {
-            calls.push(args);
+        richMenu: async (...args) => menus.push(args),
+        sendMessage: async (...args) => {
+            messages.push(args);
+            return { key: { id: 'deploy-step-1' } };
+        }
+    };
+    const message = { chat: '123@s.whatsapp.net', key: { id: 'request-2' }, message: { conversation: 'Step 1 · Discord' } };
+
+    await deploy.execute(sock, message, { args: ['step1'], reply: () => { throw new Error('step must not use plain reply'); } });
+
+    assert.equal(menus.length, 0);
+    assert.equal(messages.length, 1);
+    assert.equal(messages[0][0], message.chat);
+    assert.deepEqual(messages[0][2], { quoted: message });
+    const content = messages[0][1];
+    assert.ok(Array.isArray(content.richResponse));
+    assert.equal(content.richResponse.length, 2);
+    assert.match(content.richResponse[0].text, /Step 1/);
+    assert.equal(content.richResponse[1].title, 'Step 1 · Discord account');
+    assert.equal(content.richResponse[1].table[0].isHeading, true);
+    assert.match(content.richResponse[1].table[1].items[1], /discord\.com/);
+});
+
+test('step3 sends one rich table with code and no Gen4 menu', async () => {
+    const messages = [];
+    const menus = [];
+    const sock = {
+        richMenu: async (...args) => menus.push(args),
+        sendMessage: async (...args) => {
+            messages.push(args);
             return { key: { id: 'deploy-step-3' } };
         }
     };
-    const message = { chat: '123@s.whatsapp.net', key: { id: 'request-2' } };
+    const message = { chat: '123@s.whatsapp.net', key: { id: 'request-3' } };
 
-    await deploy.execute(sock, message, { args: ['step3'], reply: text => replies.push(text) });
+    await deploy.execute(sock, message, { args: ['step3'], reply: () => { throw new Error('step must not use plain reply'); } });
 
-    const payload = calls[0][1];
-    assert.equal(payload.header.title, 'CODY AI · Step 3 · Pair and generate');
-    assert.match(replies[0], /pair\.crysnovax\.link/);
-    assert.match(replies[0], /digits only/);
-    assert.ok(payload.body.cards[0].buttons.some(item => item.id === '.deploy menu'));
+    assert.equal(menus.length, 0);
+    assert.equal(messages.length, 1);
+    const content = messages[0][1];
+    assert.equal(content.richResponse.length, 3);
+    assert.match(content.richResponse[1].table[3].items[1], /country-code/);
+    assert.equal(content.richResponse[2].language, 'javascript');
+    assert.match(content.richResponse[2].code[0].codeContent, /index\.js/);
 });
 
 test('deploy reports a clear message when richMenu is unavailable', async () => {
     const replies = [];
-    const message = { chat: '123@s.whatsapp.net', key: { id: 'request-3' } };
+    const message = { chat: '123@s.whatsapp.net', key: { id: 'request-4' } };
 
     await deploy.execute({}, message, { args: [], reply: text => replies.push(text) });
 
     assert.match(replies[0], /richMenu is unavailable/);
-    assert.match(replies[0], /2\.7\.11/);
+    assert.match(replies[0], /2\.7\.12/);
 });
