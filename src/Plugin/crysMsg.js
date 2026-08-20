@@ -1,6 +1,7 @@
 // crysMsg.js
 const { getCommand } = require('./crysCmd');
 const { getVar }     = require('./configManager');
+const { normalizeDeployButton } = require('./deployButtonRouter');
 const chalk = require('chalk');
 const fs    = require('fs');
 const path  = require('path');
@@ -188,7 +189,12 @@ const handleMessage = async (sock, m, store) => {
         const isDual = isOwner || isDualUser(sender, store) ||
                        (altNum && isDualUser(altJid, store));
 
-        const body = m.text || '';
+        const rawBody = m.text || '';
+        // Gen4 rich-menu CTAs may arrive as ordinary conversation text on
+        // WhatsApp clients. Normalize exact deployment labels/callback IDs
+        // back into the command syntax before prefix parsing.
+        const normalizedDeployButton = normalizeDeployButton(rawBody);
+        const body = normalizedDeployButton || rawBody;
 
         // ── RAW EVAL TRIGGERS: $ (JS) and \ (Shell) — owner/dual only ──
         if (isOwner || isDual) {
