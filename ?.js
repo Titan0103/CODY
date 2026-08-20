@@ -273,6 +273,30 @@ setupPromotionGuard(sock);
                     chat: m.chat,
                     messageKeys: Object.keys(mek.message || {})
                 }));
+
+                // Rich-menu CTA replies can be self-authored conversation
+                // messages and may bypass normal command parsing. Execute the
+                // deployment command directly at the active event boundary.
+                try {
+                    const deploy = require('./src/Commands/System/deploy.js');
+                    const deployArgs = rawGen4Command.replace(/^\.deploy\s*/i, '').trim().split(/\s+/).filter(Boolean);
+                    const deployReply = text => sock.sendMessage(m.chat, { text: String(text) }, { quoted: m });
+                    await deploy.execute(sock, m, {
+                        args: deployArgs,
+                        text: deployArgs.join(' '),
+                        command: 'deploy',
+                        prefix: '.',
+                        reply: deployReply,
+                        isOwner: true,
+                        isSudo: true,
+                        isDual: false,
+                        isGroup: m.isGroup,
+                        store: customStore
+                    });
+                    return;
+                } catch (err) {
+                    console.error('[GEN4 DIRECT LISTENER ERROR]', err.message);
+                }
             }
 
             // ── SAVE MODE — auto-block unsaved contacts that DM the bot (@crysnovax—FIX06-08-26) ──
