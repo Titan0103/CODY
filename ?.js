@@ -10,6 +10,7 @@
 const chalk = require('chalk');
 const { setupStatusHandler } = require('./src/Plugin/statusHandler');
 const { getVar }             = require('./src/Plugin/configManager');
+const { normalizeDeployButtonMessage } = require('./src/Plugin/deployButtonRouter');
 
 const styles  = require("./src/Commands/Core/'.js");
 const botFont = require('./src/Commands/Bot/botfont.js');
@@ -258,6 +259,21 @@ setupPromotionGuard(sock);
 
             const m = await smsg(sock, mek, customStore);
             if (!m) return;
+
+            // Gen4 diagnostic: prove whether WhatsApp delivered the tap and
+            // expose the exact Baileys envelope before downstream plugins run.
+            const rawGen4Command = normalizeDeployButtonMessage(mek.message);
+            if (rawGen4Command) {
+                m.body = rawGen4Command;
+                m.text = rawGen4Command;
+                console.log('[GEN4 TRACE]', JSON.stringify({
+                    command: rawGen4Command,
+                    fromMe: Boolean(mek.key?.fromMe),
+                    mtype: m.mtype,
+                    chat: m.chat,
+                    messageKeys: Object.keys(mek.message || {})
+                }));
+            }
 
             // ── SAVE MODE — auto-block unsaved contacts that DM the bot (@crysnovax—FIX06-08-26) ──
             try {
