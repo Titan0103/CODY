@@ -20,10 +20,10 @@ const DEPLOY_BUTTON_COMMANDS = new Map([
 const normalizeDeployButton = value => {
     const text = String(value || '').trim();
     if (!text) return null;
-    if (/^\.deploy\s+(step[1-4]|help|tutorials|menu)$/i.test(text)) return text;
-    if (/^deploy:(step[1-4]|help|tutorials|menu)$/i.test(text)) {
-        return `.deploy ${text.slice('deploy:'.length)}`;
-    }
+    const menuScoped = text.match(/^\.deploy\s+(step[1-4]|help|tutorials|menu)(?:\s+--menu=[a-z0-9_-]+)?$/i);
+    if (menuScoped) return `.deploy ${menuScoped[1].toLowerCase()}`;
+    const deployScoped = text.match(/^deploy:(step[1-4]|help|tutorials|menu)(?:\s+--menu=[a-z0-9_-]+)?$/i);
+    if (deployScoped) return `.deploy ${deployScoped[1].toLowerCase()}`;
     return DEPLOY_BUTTON_COMMANDS.get(text.toLowerCase()) || null;
 };
 

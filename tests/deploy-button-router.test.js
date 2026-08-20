@@ -33,6 +33,12 @@ test('normalizes native-flow parameter JSON and raw conversation fallback', () =
     assert.ok(extractDeployButtonValues({ conversation: 'Tutorials' }).includes('Tutorials'));
 });
 
+test('normalizes per-menu callback IDs', () => {
+    assert.equal(normalizeDeployButton('.deploy step1 --menu=abc123'), '.deploy step1');
+    assert.equal(normalizeDeployButton('deploy:step3 --menu=menu_456'), '.deploy step3');
+    assert.equal(normalizeDeployButton('.deploy step1 --menu=ABC!'), null);
+});
+
 test('normalizes callback IDs and preserves unrelated text', () => {
     assert.equal(normalizeDeployButton('deploy:step3'), '.deploy step3');
     assert.equal(normalizeDeployButton('.deploy step4'), '.deploy step4');

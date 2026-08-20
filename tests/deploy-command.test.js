@@ -19,10 +19,16 @@ test('deploy opens the only Gen4 menu with current panel and tutorial links', as
     const payload = calls[0][1];
     assert.equal(payload.header.title, 'CODY AI Deployment Guide');
     assert.equal(payload.footer.url, 'https://sl.crysnovax.link/tutorial5');
-    assert.equal(payload.body.cards[0].buttons[0].id, '.deploy step1');
-    assert.equal(payload.body.cards[1].buttons[0].id, '.deploy step4');
+    assert.match(payload.body.cards[0].buttons[0].id, /^\.deploy step1 --menu=[a-z0-9]+$/);
+    assert.match(payload.body.cards[1].buttons[0].id, /^\.deploy step4 --menu=[a-z0-9]+$/);
     assert.equal(replies.length, 0);
     assert.deepEqual(deploy.alias, ['pair']);
+});
+
+test('repeated menu builds receive fresh callback namespaces', () => {
+    const first = deploy._internals.buildMenuPayload();
+    const second = deploy._internals.buildMenuPayload();
+    assert.notEqual(first.body.cards[0].buttons[0].id, second.body.cards[0].buttons[0].id);
 });
 
 test('step1 sends one quoted rich table and no second Gen4 menu', async () => {
