@@ -1,5 +1,7 @@
 'use strict';
 
+const { randomBytes } = require('node:crypto');
+
 const MENU_IMAGE = 'https://cdn.crysnovax.link/files/1786913837400-12ad05cc-468a-4d71-8de8-1e5a11b48f3b.jpeg';
 const PANEL_URL = 'https://sl.crysnovax.link/PANEL2';
 const PAIR_URL = 'https://pair.crysnovax.link';
@@ -29,9 +31,15 @@ const sendRichStep = async (sock, message, step) => {
     }, quoteOptions(message));
 };
 
-const button = (id, text) => ({ id: `.deploy ${id}`, text });
+const button = (id, text, menuNonce) => ({
+    // WhatsApp clients cache CTA selection state by tool_call_id. A stable
+    // `.deploy step1` id therefore stays visually selected forever for some
+    // recipients. Keep the action stable but namespace every menu instance.
+    id: `.deploy ${id} --menu=${menuNonce}`,
+    text
+});
 
-const menuPayload = {
+const buildMenuPayload = (menuNonce = randomBytes(6).toString('hex')) => ({
     header: {
         title: 'CODY AI Deployment Guide',
         image: { url: MENU_IMAGE, mime_type: 'image/jpeg' }
@@ -42,17 +50,17 @@ const menuPayload = {
             {
                 title: 'Deployment Steps',
                 buttons: [
-                    button('step1', 'Step 1 · Discord'),
-                    button('step2', 'Step 2 · Panel'),
-                    button('step3', 'Step 3 · Pair')
+                    button('step1', 'Step 1 · Discord', menuNonce),
+                    button('step2', 'Step 2 · Panel', menuNonce),
+                    button('step3', 'Step 3 · Pair', menuNonce)
                 ]
             },
             {
                 title: 'Finish & Help',
                 buttons: [
-                    button('step4', 'Step 4 · Upload'),
-                    button('help', 'Help'),
-                    button('tutorials', 'Tutorials')
+                    button('step4', 'Step 4 · Upload', menuNonce),
+                    button('help', 'Help', menuNonce),
+                    button('tutorials', 'Tutorials', menuNonce)
                 ]
             }
         ]
@@ -61,7 +69,7 @@ const menuPayload = {
         text: 'Open a step for the current instructions',
         url: TUTORIAL5_URL
     }
-};
+});
 
 const tableRows = (...rows) => [
     { isHeading: true, items: ['Item', 'Instruction'] },
@@ -135,7 +143,7 @@ const deployCommand = {
 
         try {
             if (action === 'menu' || action === 'start') {
-                await sendRichMenu(sock, message, menuPayload);
+                await sendRichMenu(sock, message, buildMenuPayload());
                 return;
             }
 
@@ -156,4 +164,4 @@ const deployCommand = {
 };
 
 module.exports = deployCommand;
-module.exports._internals = { menuPayload, STEPS, sendRichStep };
+module.exports._internals = { buildMenuPayload, STEPS, sendRichStep };
