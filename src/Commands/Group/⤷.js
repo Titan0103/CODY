@@ -28,6 +28,11 @@ const normalizeBackgroundColor = value => {
     if (/^[0-9a-f]{6}$/i.test(raw)) return `#${raw.toUpperCase()}`;
     return undefined;
 };
+const toArgb = color => {
+    const normalized = normalizeBackgroundColor(color);
+    if (!normalized) return undefined;
+    return parseInt(`FF${normalized.replace('#', '')}`, 16);
+};
 const parseStatusOptions = (text = '', args = []) => {
     let source = Array.isArray(args) && args.length ? args.join(' ') : String(text);
     let caption;
@@ -175,7 +180,7 @@ async function buildGroupStatusAudioMessage(audioBuffer, mimetype, ptt, sock) {
 }
 
 // ── Build groupStatusMessageV2 with link preview ──────────────
-function buildGroupStatusTextMessage(text, preview) {
+function buildGroupStatusTextMessage(text, preview, backgroundColor) {
     const extMsg = { text };
     if (preview) {
         extMsg.matchedText = preview.url;
@@ -194,6 +199,8 @@ function buildGroupStatusTextMessage(text, preview) {
             extMsg.thumbnailEncSha256 = preview.hq.fileEncSha256;
         }
     }
+    const backgroundArgb = toArgb(backgroundColor);
+    if (backgroundArgb !== undefined) extMsg.backgroundArgb = backgroundArgb;
     return { groupStatusMessageV2: { message: { extendedTextMessage: extMsg } } };
 }
 
@@ -278,9 +285,9 @@ module.exports = {
 
                     if (url) {
                         const preview = await buildPreview(url, sock, '', '');
-                        message = buildGroupStatusTextMessage(messageText, preview);
+                        message = buildGroupStatusTextMessage(messageText, preview, statusOptions.backgroundColor);
                     } else {
-                        message = { groupStatusMessageV2: { message: { extendedTextMessage: { text: messageText } } } };
+                        message = buildGroupStatusTextMessage(messageText, null, statusOptions.backgroundColor);
                     }
 
                     for (const groupId of groupIds) {
@@ -436,7 +443,7 @@ module.exports = {
 
                 if (url) {
                     const preview = await buildPreview(url, sock, '', '');
-                    const message = buildGroupStatusTextMessage(finalText, preview);
+                    const message = buildGroupStatusTextMessage(finalText, preview, statusOptions.backgroundColor);
                     await relayAndTrack(sock, targetJid, message);
                 } else {
                     const txtMsg = await sendGroupStatusCompat(sock, targetJid, {
