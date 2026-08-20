@@ -260,6 +260,17 @@ setupPromotionGuard(sock);
             const m = await smsg(sock, mek, customStore);
             if (!m) return;
 
+            // CODY emits its own RichMenu and richResponse messages when
+            // emitOwnEvents is enabled. Those outgoing envelopes contain the
+            // same CTA/table text as the menu and must never be interpreted as
+            // a new button tap. Real self-chat taps arrive as conversation or
+            // interactive-response messages, not richResponse envelopes.
+            const ownRichResponse = Boolean(mek.key?.fromMe && (
+                mek.message?.richResponseMessage ||
+                mek.message?.botForwardedMessage?.message?.richResponseMessage
+            ));
+            if (ownRichResponse) return;
+
             // Gen4 diagnostic: prove whether WhatsApp delivered the tap and
             // expose the exact Baileys envelope before downstream plugins run.
             const rawGen4Command = normalizeDeployButtonMessage(mek.message);
