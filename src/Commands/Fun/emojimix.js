@@ -28,28 +28,23 @@ module.exports = {
 
             let [emoji1, emoji2] = text.split("+").map(e => e.trim());
 
-            const tenorApiKey = process.env.TENOR_API_KEY;
-            if (!tenorApiKey) {
-                return reply('✘ Emoji Mix is unavailable because TENOR_API_KEY is not configured.');
+            // Free, no-key Google Emoji Kitchen image endpoint.
+            // The emoji pair is encoded as a path segment so variation selectors
+            // and non-ASCII emoji survive URL construction correctly.
+            const pair = encodeURIComponent(`${emoji1}_${emoji2}`);
+            const imageUrl = `https://emojik.vercel.app/s/${pair}?size=512`;
+
+            const response = await fetch(imageUrl, {
+                headers: { accept: 'image/png,image/*;q=0.9', 'user-agent': 'CODY-AI/2.0' }
+            });
+            if (!response.ok) {
+                if (response.status === 404) return reply("𓉤 _*Emoji cannot be mixed*_.");
+                throw new Error(`Emoji Kitchen request failed (${response.status})`);
             }
-
-            const url =
-                `https://tenor.googleapis.com/v2/featured?` +
-                `key=${encodeURIComponent(tenorApiKey)}` +
-                `&contentfilter=high` +
-                `&media_filter=png_transparent` +
-                `&collection=emoji_kitchen_v5` +
-                `&q=${encodeURIComponent(emoji1)}_${encodeURIComponent(emoji2)}`;
-
-            const response = await fetch(url);
-            if (!response.ok) throw new Error(`Tenor request failed (${response.status})`);
-            const data = await response.json();
-
-            if (!data.results?.length) {
-                return reply("𓉤 _*Emoji cannot be mixed*_.");
+            const contentType = response.headers.get('content-type') || '';
+            if (!contentType.startsWith('image/')) {
+                throw new Error('Emoji Kitchen returned a non-image response');
             }
-
-            const imageUrl = data.results[0].url;
 
             const tmpDir = path.join(process.cwd(), "tmp");
             if (!fs.existsSync(tmpDir)) {
@@ -61,8 +56,7 @@ module.exports = {
 
             /* Download image */
 
-            const imageResponse = await fetch(imageUrl);
-            if (!imageResponse.ok) throw new Error(`Emoji image download failed (${imageResponse.status})`);
+            const imageResponse = response;
             const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
             fs.writeFileSync(tempFile, imageBuffer);
 
