@@ -14,7 +14,6 @@ const DEPLOY_BUTTON_COMMANDS = new Map([
     ['help', '.deploy help'],
     ['tutorials', '.deploy tutorials'],
     ['back to menu', '.deploy menu'],
-    ['menu', '.deploy menu']
 ]);
 
 const normalizeDeployButton = value => {

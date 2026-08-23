@@ -3,8 +3,10 @@ const path = require('path');
 const { downloadContentFromMessage } = require('@crysnovax/baileys');
 
 const DATA_FILE = path.join(__dirname, '../../../database/vv-reactions.json');
+const AUTOVV_FILE = path.join(__dirname, '../../../database/autovv.json');
 
 let reactionTriggers = {};
+let autoVVChats = {};
 let listenerAttached = false;
 
 try {
@@ -12,15 +14,45 @@ try {
     reactionTriggers = JSON.parse(fs.readFileSync(DATA_FILE));
   }
 } catch {}
+try {
+  if (fs.existsSync(AUTOVV_FILE)) autoVVChats = JSON.parse(fs.readFileSync(AUTOVV_FILE, 'utf8'));
+} catch {}
 
 function saveTriggers() {
   fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
   fs.writeFileSync(DATA_FILE, JSON.stringify(reactionTriggers, null, 2));
 }
+function saveAutoVV() {
+  fs.mkdirSync(path.dirname(AUTOVV_FILE), { recursive: true });
+  fs.writeFileSync(AUTOVV_FILE, JSON.stringify(autoVVChats, null, 2));
+}
+function unwrapViewOnce(message) {
+  let content = message;
+  let changed = true;
+  while (changed && content) {
+    changed = false;
+    for (const key of ['ephemeralMessage', 'viewOnceMessage', 'viewOnceMessageV2', 'viewOnceMessageV2Extension', 'documentWithCaptionMessage']) {
+      if (content[key]?.message) {
+        content = content[key].message;
+        changed = true;
+        break;
+      }
+    }
+  }
+  return content;
+}
+async function downloadMedia(content) {
+  const type = Object.keys(content || {})[0];
+  if (!['imageMessage', 'videoMessage', 'stickerMessage', 'audioMessage'].includes(type)) return null;
+  const stream = await downloadContentFromMessage(content[type], type.replace('Message', '').toLowerCase());
+  const chunks = [];
+  for await (const chunk of stream) chunks.push(chunk);
+  return { type, buffer: Buffer.concat(chunks) };
+}
 
 module.exports = {
   name: 'vv',
-  alias: ['viewonce', 'vview', 'vvp'],
+  alias: ['viewonce', 'vview', 'vvp', 'autovv'],
   category: 'media',
   owner: true,
   reactions: {
@@ -30,10 +62,21 @@ module.exports = {
 
   execute: async (sock, m, { args, reply, prefix }) => {
     try {
-      const cmd = m.body.split(' ')[0].toLowerCase();
+      const rawBody = m.body || m.text || m.message?.conversation || m.message?.extendedTextMessage?.text || '';
+      const cmd = rawBody.trim().split(/\s+/)[0].toLowerCase();
       const sender = m.sender;
       const vvCmd = prefix + 'vv';
       const vvpCmd = prefix + 'vvp';
+      const autovvCmd = prefix + 'autovv';
+
+      if (cmd === autovvCmd) {
+        const mode = (args[0] || 'status').toLowerCase();
+        if (!['on', 'off', 'status'].includes(mode)) return reply(`Usage: ${autovvCmd} on | off | status`);
+        if (mode === 'status') return reply(`AutoVV is ${autoVVChats[m.chat] ? 'ON' : 'OFF'} in this chat.`);
+        autoVVChats[m.chat] = mode === 'on';
+        saveAutoVV();
+        return reply(`AutoVV ${mode === 'on' ? 'enabled' : 'disabled'} in this chat.`);
+      }
 
       // ───── SET REACTION TRIGGER ─────
       if (cmd === vvCmd && args[0] === 'cmd' && args[1]) {
@@ -43,16 +86,23 @@ module.exports = {
       }
 
       // ───── MUST REPLY ─────
-      let quoted = m.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+      let quoted = m.quoted?.message || m.message?.extendedTextMessage?.contextInfo?.quotedMessage;
       if (!quoted) {
         return reply('╭─❍ *CRYSNOVA AI V2.0*\n│ ✘ Reply to a view-once message.\n╰──────────────────');
       }
 
-      // unwrap ephemeral
-      if (quoted.ephemeralMessage) quoted = quoted.ephemeralMessage.message;
-
-      // unwrap viewOnce
-      if (quoted.viewOnceMessage) quoted = quoted.viewOnceMessage.message;
+      // Unwrap current ephemeral/view-once envelopes.
+      let unwrapped = true;
+      while (unwrapped && quoted) {
+        unwrapped = false;
+        for (const key of ['ephemeralMessage', 'viewOnceMessage', 'viewOnceMessageV2', 'viewOnceMessageV2Extension', 'documentWithCaptionMessage']) {
+          if (quoted[key]?.message) {
+            quoted = quoted[key].message;
+            unwrapped = true;
+            break;
+          }
+        }
+      }
 
       const type = Object.keys(quoted)[0];
 
@@ -88,11 +138,9 @@ module.exports = {
 
       // ───── PRIVATE (.vvp) ─────
       if (cmd === vvpCmd) {
-        await sock.sendMessage(sender, {
-          [sendType]: buffer,
-          caption: `╭─❍ *CRYSNOVA AI V2.0*\n│ ✓ View-once saved privately.\n╰──────────────────`
-        });
-        return reply('╭─❍ *CRYSNOVA AI V2.0*\n│ ✓ Sent to your DM.\n╰──────────────────');
+        await sock.sendMessage(sender, { [sendType]: buffer });
+        await sock.sendMessage(m.chat, { react: { text: '✅', key: m.key } }).catch(() => {});
+        return;
       }
 
       // ───── NORMAL (.vv) ─────
@@ -160,5 +208,25 @@ module.exports = {
       console.error('[VV ERROR]', err);
       reply('╭─❍ *CRYSNOVA AI V2.0*\n│ ✘ Error unlocking view-once.\n╰──────────────────');
     }
+  }
+};
+
+// Called before command dispatch so AutoVV also handles view-once media
+// messages that contain no text or command prefix.
+module.exports.handleAutoVV = async function handleAutoVV(sock, m, mek) {
+  try {
+    const chat = m?.chat || mek?.key?.remoteJid;
+    if (!chat || !autoVVChats[chat] || mek?.key?.fromMe) return false;
+    const content = unwrapViewOnce(mek?.message || m?.message);
+    const media = await downloadMedia(content);
+    if (!media) return false;
+    const recipient = m?.sender || mek?.key?.participant || chat;
+    const sendType = media.type.replace('Message', '').toLowerCase();
+    await sock.sendMessage(recipient, { [sendType]: media.buffer });
+    await sock.sendMessage(chat, { react: { text: '👁️', key: m?.key || mek?.key } }).catch(() => {});
+    return true;
+  } catch (error) {
+    console.error('[AUTOVV ERROR]', error.message);
+    return false;
   }
 };

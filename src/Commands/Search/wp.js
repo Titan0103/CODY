@@ -8,7 +8,7 @@ module.exports = {
     alias: ['wlp', 'wall',],
     desc: 'Search for beautiful wallpapers',
     category: 'Search',
-    usage: `${prefix}wallpaper <query>`,
+    usage: '.wallpaper <query>',
 
     execute: async (sock, m, { args, reply }) => {
         const query = args.join(' ').trim();
@@ -19,7 +19,7 @@ module.exports = {
             
             const res = await axios.get(`https://wallpaper.crysnovax.link/api/search?query=${encodeURIComponent(query)}`);
             const data = res.data;
-            const results = data?.results;
+            const results = Array.isArray(data) ? data : (data?.results || data?.data || data?.wallpapers);
 
             if (!Array.isArray(results) || results.length === 0) {
                 return reply(`✘ No wallpapers found for "${query}"`);
@@ -39,12 +39,23 @@ module.exports = {
                 }]
             }));
 
-            // Send as interactive carousel message
-            await sock.sendMessage(m.chat, {
-                text: `🖼️ *WALLPAPER SEARCH: ${query}*`,
-                footer: `Found ${results.length} results`,
-                cards: cards
-            }, { quoted: m });
+            // Generic sendMessage does not understand card arrays. Prefer the
+            // fork's rich-grid helper, then fall back to ordinary images.
+            if (typeof sock.sendRichButtonGrid === 'function') {
+                await sock.sendRichButtonGrid(m.chat, {
+                    text: `🖼️ *WALLPAPER SEARCH: ${query}*`,
+                    footer: `Found ${results.length} results`,
+                    cards
+                }, { quoted: m });
+            } else if (typeof sock.sendInteractiveCarousel === 'function') {
+                await sock.sendInteractiveCarousel(m.chat, {
+                    text: `🖼️ *WALLPAPER SEARCH: ${query}*`,
+                    footer: `Found ${results.length} results`,
+                    cards
+                }, { quoted: m });
+            } else {
+                throw new Error('No supported interactive wallpaper sender');
+            }
 
             await sock.sendMessage(m.chat, { react: { text: '✨', key: m.key } });
             
@@ -54,7 +65,8 @@ module.exports = {
             // Fallback to simple image messages if carousel fails
             try {
                 const res = await axios.get(`https://wallpaper.crysnovax.link/api/search?query=${encodeURIComponent(query)}`);
-                const results = res.data?.results || [];
+                const fallbackData = res.data;
+                const results = Array.isArray(fallbackData) ? fallbackData : (fallbackData?.results || fallbackData?.data || fallbackData?.wallpapers || []);
                 for (const wp of results.slice(0, 5)) {
                     await sock.sendMessage(m.chat, {
                         image: { url: wp.proxy },

@@ -31,15 +31,23 @@ module.exports.handleVVReply = async function(sock, m) {
 
         // ── EXACT SAME AS .vvp FROM HERE ─────────────────────
 
-        // Must reply to something
-        let quoted = m.message?.extendedTextMessage?.contextInfo?.quotedMessage
+        // Must reply to something. Prefer the serialized quote, then fall
+        // back to the raw context envelope used by newer Baileys clients.
+        let quoted = m.quoted?.message || m.message?.extendedTextMessage?.contextInfo?.quotedMessage
         if (!quoted) return
 
-        // unwrap ephemeral
-        if (quoted.ephemeralMessage) quoted = quoted.ephemeralMessage.message
-
-        // unwrap viewOnce
-        if (quoted.viewOnceMessage)  quoted = quoted.viewOnceMessage.message
+        // Unwrap every envelope used by current WhatsApp clients.
+        let unwrapped = true
+        while (unwrapped && quoted) {
+            unwrapped = false
+            for (const key of ['ephemeralMessage', 'viewOnceMessage', 'viewOnceMessageV2', 'viewOnceMessageV2Extension', 'documentWithCaptionMessage']) {
+                if (quoted[key]?.message) {
+                    quoted = quoted[key].message
+                    unwrapped = true
+                    break
+                }
+            }
+        }
 
         const type = Object.keys(quoted)[0]
 

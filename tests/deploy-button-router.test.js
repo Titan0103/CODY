@@ -43,5 +43,7 @@ test('normalizes callback IDs and preserves unrelated text', () => {
     assert.equal(normalizeDeployButton('deploy:step3'), '.deploy step3');
     assert.equal(normalizeDeployButton('.deploy step4'), '.deploy step4');
     assert.equal(normalizeDeployButton('hello world'), null);
+    assert.equal(normalizeDeployButton('Menu'), null);
+    assert.equal(normalizeDeployButton('/menu'), null);
     assert.equal(normalizeDeployButton('Step 9 · Other'), null);
 });
