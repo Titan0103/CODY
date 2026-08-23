@@ -281,7 +281,7 @@ module.exports = {
 };
 
 // ── Message Handler ──────────────────────────────────────────────
-module.exports.handleAntiLink = async function(sock, m) {
+module.exports.handleAntiLink = async function(sock, m, mek) {
     try {
         if (!m.isGroup) return;
         if (m.key?.fromMe) return;
@@ -294,7 +294,11 @@ module.exports.handleAntiLink = async function(sock, m) {
         if (!cfg.enabled) return;
 
         // ── Extract text from ALL message types + extendedTextMessage fix ──
-        const msg = m.message || {};
+        const msg = {
+            ...(mek?.message || {}),
+            ...(m.message || {}),
+            ...(m.msg || {})
+        };
 
         const parts = [
             m.text,
@@ -339,7 +343,7 @@ module.exports.handleAntiLink = async function(sock, m) {
         const action = cfg.action || 'delete';
 
         // Delete the message FIRST for all actions
-        await sock.sendMessage(group, { delete: m.key }).catch(() => {});
+        await sock.sendMessage(group, { delete: mek?.key || m.key }).catch(() => {});
 
         if (action === 'delete') {
             await sock.sendMessage(group, {

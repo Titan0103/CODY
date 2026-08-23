@@ -306,7 +306,7 @@ const handleMessage = async (sock, m, store) => {
                 isOwnerAdmin;
         }
 
-        const reply = (txt) => sock.sendMessage(m.chat, { text: txt }, { quoted: m });
+        const reply = (txt, options = {}) => sock.sendMessage(m.chat, { text: txt, ...options }, { quoted: m });
 
         // MODIFIED: Allow 'appeal' command for everyone even in private mode
         const isPublicCommand = cmdName === 'appeal';

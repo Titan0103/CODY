@@ -49,7 +49,7 @@ function createAntiMessageModeration({
             const config = ensureConfig(db, m.chat);
             const subcommand = args[0]?.toLowerCase();
 
-            if (!subcommand) {
+            if (!subcommand || subcommand === 'status') {
                 const action = config.action === 'warn' ? 'WARN (3x → KICK)' : config.action.toUpperCase();
                 return reply(`*${label} Settings*\n\n• Status : ${config.enabled ? 'ON' : 'OFF'}\n• Action : ${action}\n\nCommands:\n• .${command} on / off\n• .${command} delete / warn / kick\n• .${command} resetwarn @user`);
             }
