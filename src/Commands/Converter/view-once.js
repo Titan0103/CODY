@@ -139,7 +139,7 @@ module.exports = {
       // ───── PRIVATE (.vvp) ─────
       if (cmd === vvpCmd) {
         await sock.sendMessage(sender, { [sendType]: buffer });
-        await sock.sendMessage(m.chat, { react: { text: '✅', key: m.key } }).catch(() => {});
+        await sock.sendMessage(m.chat, { react: { text: '🐾', key: m.key } }).catch(() => {});
         return;
       }
 
