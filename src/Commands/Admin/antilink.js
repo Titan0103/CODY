@@ -37,18 +37,41 @@ function ensureGroupConfig(db, group) {
     return db[group];
 }
 
-function hasLink(text) {
-    if (/(https?:\/\/|www\.|chat\.whatsapp\.com|wa\.me)/i.test(text)) return true;
-    // bare domains without https:// also count (@crysnovax—FIX06-08-26)
-    return /(?:^|\s)(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s<>]*)?/i.test(text);
+function getMessageText(value, seen = new WeakSet()) {
+    if (!value || typeof value !== 'object' || seen.has(value)) return [];
+    seen.add(value);
+    const texts = [];
+    for (const key of ['conversation', 'text', 'caption', 'matchedText', 'contentText', 'selectedDisplayText', 'title']) {
+        if (typeof value[key] === 'string' && value[key].trim()) texts.push(value[key].trim());
+    }
+    for (const child of Object.values(value)) {
+        if (child && typeof child === 'object') texts.push(...getMessageText(child, seen));
+    }
+    return texts;
 }
 
+function hasLink(text) {
+    if (/(?:https?:\/\/|www\.|chat\.whatsapp\.com|wa\.me)/i.test(text)) return true;
+    // Bare domains, including short-link hosts such as vt.tiktok.com.
+    return /(?:^|[^a-z0-9-])(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s<>]*)?/i.test(text);
+}
+
+function cleanUrl(value) {
+    return String(value || '').trim()
+        .replace(/^[^a-z0-9]+/i, '')
+        .replace(/[),.!?]+$/g, '');
+}
 function extractUrls(text) {
     const matches = [];
-    const withScheme = text.match(/https?:\/\/[^\s<>]+/gi) || [];
-    const bare = text.match(/(?:^|\s)(?:(?:[a-z0-9-]+\.)+[a-z]{2,})(?:\/[^\s<>]*)?/gi) || [];
-    for (const u of withScheme) matches.push(u.trim());
-    for (const b of bare) matches.push(b.trim());
+    const withScheme = (text.match(/https?:\/\/[^\s<>]+/gi) || []).map(cleanUrl);
+    for (const url of withScheme) if (url && !matches.includes(url)) matches.push(url);
+    const bare = text.match(/(?:^|[^a-z0-9-])(?:(?:[a-z0-9-]+\.)+[a-z]{2,})(?:\/[^\s<>]*)?/gi) || [];
+    for (const raw of bare) {
+        const url = cleanUrl(raw);
+        if (!url || /^https?:\/\//i.test(url)) continue;
+        const alreadySchemed = matches.some(full => full.replace(/^https?:\/\//i, '') === url);
+        if (!alreadySchemed && !matches.includes(url)) matches.push(url);
+    }
     return matches;
 }
 
@@ -281,6 +304,9 @@ module.exports = {
 };
 
 // ── Message Handler ──────────────────────────────────────────────
+module.exports.getMessageText = getMessageText;
+module.exports.hasLink = hasLink;
+module.exports.extractUrls = extractUrls;
 module.exports.handleAntiLink = async function(sock, m, mek) {
     try {
         if (!m.isGroup) return;
@@ -303,16 +329,12 @@ module.exports.handleAntiLink = async function(sock, m, mek) {
         const parts = [
             m.text,
             m.body,
-            msg.conversation,
-            msg.extendedTextMessage?.text,
-            msg.extendedTextMessage?.matchedText,
-            msg.imageMessage?.caption,
-            msg.videoMessage?.caption,
-            msg.documentMessage?.caption,
-            msg.audioMessage?.caption,
+            ...getMessageText(msg),
+            ...getMessageText(mek?.message),
+            ...getMessageText(m.message),
+            ...getMessageText(m.msg),
         ].filter(Boolean);
-
-        const text = parts.join(' ');
+        const text = [...new Set(parts)].join(' ');
 
         if (!text) return;
         if (!hasLink(text)) return;
