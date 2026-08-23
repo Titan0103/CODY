@@ -79,25 +79,11 @@ module.exports = {
       const result = await generateMusic(input);
       const audio = await fetchAudio(result.url);
       const title = String(result.title || input.prompt).slice(0, 80);
-      const tags = result.tags ? `\nTags: ${result.tags}` : '';
-      const duration = result.duration ? `\nDuration: ${result.duration}s` : '';
-
       await sock.sendMessage(m.chat, {
         audio,
         mimetype: 'audio/mpeg',
         ptt: false,
-        fileName: `${title.replace(/[^a-z0-9._ -]/gi, '').trim() || 'cody-music'}.mp3`,
-        contextInfo: {
-          externalAdReply: {
-            title,
-            body: `CODY Music Generator${tags}${duration}`,
-            mediaType: 2,
-            thumbnailUrl: result.thumbnail || undefined,
-            sourceUrl: result.url,
-            renderLargerThumbnail: true,
-            showAdAttribution: false
-          }
-        }
+        fileName: `${title.replace(/[^a-z0-9._ -]/gi, '').trim() || 'cody-music'}.mp3`
       }, { quoted: m });
 
       if (progress?.key) await sock.sendMessage(m.chat, { delete: progress.key }).catch(() => {});

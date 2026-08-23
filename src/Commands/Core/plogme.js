@@ -2186,14 +2186,11 @@ async function execute(sock, m, opts) {
         // auto-replies after an explicit `.plogme on` (or `.plogme on all` for
         // DM-wide). An explicit `.plogme off` is honored and stays off.
         // (@crysnovax—FIX12-08-26)
+        // PLOGME is strictly opt-in. A chat or global-DM mode must be
+        // explicitly enabled with `.plogme on` or `.plogme on all`.
+        // Environment variables never implicitly enable auto-replies.
         let on = isEnabled(m.chat);
-        if (!m.isGroup) {
-            if (!on && isGlobalPrivateEnabled()) on = true;
-            // PLOGME is OFF by default — a chat only auto-replies after an
-            // explicit ".plogme on" (or PLOGME_DM=true is set). No implicit
-            // always-on behavior. (@crysnovax—FIX12-08-26)
-            if (!on && getVar('PLOGME_DM', false) === true && !hasExplicitToggle(m.chat)) on = true;
-        }
+        if (!m.isGroup && !on && isGlobalPrivateEnabled()) on = true;
         if (!on) return false;
 
         // NEVER respond to messages that look like bot commands — anything
