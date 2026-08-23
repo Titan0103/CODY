@@ -82,7 +82,7 @@ module.exports = {
 
         const sub = args[0]?.toLowerCase();
 
-        if (!sub) {
+        if (!sub || sub === 'status') {
             const cfg = db[group];
             let actionDisplay;
             if (cfg.action === 'delete') actionDisplay = ' ꙰⊕ DELETE';

@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { resolvePhoneJidWithMetadata } = require('../../Plugin/identityUtils');
 
 const readGroupConfig = name => {
     try {
@@ -25,13 +26,17 @@ module.exports = {
         const metadata = await sock.groupMetadata(m.chat).catch(() => null);
         if (!metadata) return reply('Unable to read group settings right now.');
 
-        const moderators = (metadata.participants || [])
-            .filter(participant => participant.admin === 'admin' || participant.admin === 'superadmin')
-            .map(participant => {
-                const jid = participant.id || participant.jid || '';
-                const role = participant.admin === 'superadmin' ? 'Owner' : 'Moderator';
-                return `• @${jid.split('@')[0]} — ${role}`;
-            });
+        const moderatorRecords = (metadata.participants || [])
+            .filter(participant => participant.admin === 'admin' || participant.admin === 'superadmin');
+        const resolvedModerators = await Promise.all(moderatorRecords.map(async participant => {
+            const candidates = [participant.phoneNumber, participant.jid, participant.id, participant.lid].filter(Boolean);
+            const jid = await resolvePhoneJidWithMetadata(sock, m.chat, candidates)
+                || candidates.find(value => String(value).endsWith('@s.whatsapp.net'))
+                || candidates[0] || '';
+            const role = participant.admin === 'superadmin' ? 'Owner' : 'Moderator';
+            return { jid: String(jid), role };
+        }));
+        const moderators = resolvedModerators.map(({ jid, role }) => `• @${jid.split('@')[0]} — ${role}`);
 
         const antiLink = readGroupConfig('antilink.json');
         const antiGm = readGroupConfig('antigm.json');
@@ -39,10 +44,7 @@ module.exports = {
         const antiForward = readGroupConfig('antiforward.json');
         const antiGroupStatus = readGroupConfig('antigroupstatus.json');
 
-        const mentions = (metadata.participants || [])
-            .filter(participant => participant.admin === 'admin' || participant.admin === 'superadmin')
-            .map(participant => participant.id || participant.jid)
-            .filter(Boolean);
+        const mentions = resolvedModerators.map(({ jid }) => jid).filter(jid => jid.endsWith('@s.whatsapp.net'));
 
         return reply(
             `⚙️ *Group Settings*\n\n` +
