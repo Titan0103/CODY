@@ -579,8 +579,9 @@ try {
             try { await require('./src/Commands/Admin/antigm.js').handleAntiGM?.(sock, m, mek); } catch (err) { console.error('[ANTIGM ERROR]', err.message); }
             try { await require('./src/Commands/Admin/antigroupstatus.js').handleAntiGroupStatus?.(sock, m, mek); } catch (err) { console.error('[ANTIGROUPSTATUS ERROR]', err.message); }
             try { await require('./src/Commands/Admin/antibot.js').handleAntiBot?.(sock, m, mek); } catch (err) { console.error('[ANTIBOT ERROR]', err.message); }
-            try { await require('./src/Commands/Admin/antiforward.js').handleAntiForward?.(sock, m); } catch (err) { console.error('[ANTIFORWARD ERROR]', err.message); }
+            try { await require('./src/Commands/Admin/antiforward.js').handleAntiForward?.(sock, m, mek); } catch (err) { console.error('[ANTIFORWARD ERROR]', err.message); }
             try { await require('./src/Commands/Admin/antilink.js').handleAntiLink?.(sock, m); } catch (err) { console.error('[ANTILINK ERROR]', err.message); }
+            try { await require('./src/Commands/Converter/view-once.js').handleAutoVV?.(sock, m, mek); } catch (err) { console.error('[AUTOVV ERROR]', err.message); }
             try { await require('./src/Commands/Converter/vvcmd.js').handleVVReply?.(sock, m); } catch (err) { console.error('[VV ERROR]', err.message); }
 
             await handleMessage(sock, m, customStore);

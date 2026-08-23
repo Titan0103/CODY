@@ -80,7 +80,13 @@ function createAntiMessageModeration({
 
     plugin.handleModeration = async function handleModeration(sock, m, mek) {
         try {
-            if (!m.isGroup || m.key?.fromMe || !detector(mek?.message || m.message || {})) return false;
+            const detectionPayload = {
+                raw: mek?.message || {},
+                message: m.message || {},
+                msg: m.msg || {},
+                serialized: m
+            };
+            if (!m.isGroup || m.key?.fromMe || !detector(detectionPayload)) return false;
             const config = readJson(dbPath)[m.chat];
             if (!config?.enabled) return false;
 
@@ -116,7 +122,7 @@ function createAntiMessageModeration({
             };
             const removeMessage = deleteMessage
                 ? () => deleteMessage(sock, m, mek, removalContext)
-                : () => sock.sendMessage(m.chat, { delete: m.key });
+                : () => sock.sendMessage(m.chat, { delete: mek?.key || m.key });
             try {
                 await removeMessage();
             } catch (error) {
