@@ -430,10 +430,7 @@ try {
             const AFK_MARKER = afkCmd.MARKER;
            
             if (m.mtype === 'reactionMessage') return;
-            // The send override appends this marker to CODY-authored output.
-            // Never discard incoming user messages merely because they contain
-            // the same invisible character; AntiLink must still inspect them.
-            if (m.key?.fromMe && m.body && m.body.includes(AFK_MARKER)) return;
+            if (m.body && m.body.includes(AFK_MARKER)) return;
 
             const _afkSender = await afkCmd.resolveSenderPhoneJid(sock, m);
             if (_afkSender && afkCmd.disableAfk(_afkSender, m.chat)) {
