@@ -1,8 +1,14 @@
 const test = require('node:test');
+const fs = require('node:fs');
 const assert = require('node:assert/strict');
 const { isForwardedMessage } = require('../src/Commands/Admin/antiforward');
 const antilink = require('../src/Commands/Admin/antilink');
 const vv = require('../src/Commands/Converter/view-once');
+
+test('AFK marker guard does not discard incoming marked messages', () => {
+  const dispatcher = fs.readFileSync(require.resolve('../?.js'), 'utf8');
+  assert.match(dispatcher, /m\.key\?\.fromMe\s*&&\s*m\.body\s*&&\s*m\.body\.includes\(AFK_MARKER\)/);
+});
 
 test('AntiForward detects forwarding metadata in every message container', () => {
   assert.equal(isForwardedMessage({ raw: { extendedTextMessage: { contextInfo: { isForwarded: true } } } }), true);
