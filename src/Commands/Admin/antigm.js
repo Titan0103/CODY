@@ -47,7 +47,7 @@ module.exports = {
 
         const sub = args[0]?.toLowerCase();
 
-        if (!sub) {
+        if (!sub || sub === 'status') {
             const cfg = db[group];
             let actionDisplay;
             if (cfg.action === 'delete') actionDisplay = ' ꙰⊕ DELETE';
@@ -108,13 +108,13 @@ module.exports = {
         }
         if (sub === 'resetwarn') {
             const mentioned = m.mentionedJid?.[0];
-            if (!mentioned) return reply(`${prefix}✐ Usage: antigm resetwarn @user`);
+            if (!mentioned) return reply('✐ Usage: .antigm resetwarn @user');
             const warns = loadWarns();
             const key = `${group}_${mentioned}`;
             if (warns[key]) {
                 delete warns[key];
                 saveWarns(warns);
-                return reply(`${prefix}✓ Warnings reset for @${mentioned.split('@')[0]}`);
+                return reply(`✓ Warnings reset for @${mentioned.split('@')[0]}`);
             }
             return reply(`✘ User has no warnings.`);
         }
@@ -204,7 +204,7 @@ module.exports.handleAntiGM = async function(sock, m, mek) {
         else if (action === 'tkick') {
             // temp kick — auto re-added after the duration (@crysnovax—FIX06-08-26)
             const { tkick, parseTime } = require('../../Plugin/tkick');
-            const durText = cfg.tkickDuration || '5m';
+            const durText = db[group].tkickDuration || '5m';
             const durMs = parseTime(durText) || 5 * 60 * 1000;
 
             await sock.sendMessage(group, {

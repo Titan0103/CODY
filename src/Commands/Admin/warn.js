@@ -51,6 +51,12 @@ module.exports = [
 
             const reason = args.join(' ').trim() || 'No reason';
             const group = m.chat;
+
+            // When /warn is sent as a reply, remove the offending message first.
+            // A tag-only warning has no target message to delete.
+            if (m.quoted?.key) {
+                await sock.sendMessage(group, { delete: m.quoted.key }).catch(() => {});
+            }
             const targetNum = target.num;
             const targetJid = target.jid;
 

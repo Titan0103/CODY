@@ -30,7 +30,8 @@ module.exports = {
 
   execute: async (sock, m, { args, reply, prefix }) => {
     try {
-      const cmd = m.body.split(' ')[0].toLowerCase();
+      const rawBody = m.body || m.text || m.message?.conversation || m.message?.extendedTextMessage?.text || '';
+      const cmd = rawBody.trim().split(/\s+/)[0].toLowerCase();
       const sender = m.sender;
       const vvCmd = prefix + 'vv';
       const vvpCmd = prefix + 'vvp';
@@ -43,16 +44,23 @@ module.exports = {
       }
 
       // ───── MUST REPLY ─────
-      let quoted = m.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+      let quoted = m.quoted?.message || m.message?.extendedTextMessage?.contextInfo?.quotedMessage;
       if (!quoted) {
         return reply('╭─❍ *CRYSNOVA AI V2.0*\n│ ✘ Reply to a view-once message.\n╰──────────────────');
       }
 
-      // unwrap ephemeral
-      if (quoted.ephemeralMessage) quoted = quoted.ephemeralMessage.message;
-
-      // unwrap viewOnce
-      if (quoted.viewOnceMessage) quoted = quoted.viewOnceMessage.message;
+      // Unwrap current ephemeral/view-once envelopes.
+      let unwrapped = true;
+      while (unwrapped && quoted) {
+        unwrapped = false;
+        for (const key of ['ephemeralMessage', 'viewOnceMessage', 'viewOnceMessageV2', 'viewOnceMessageV2Extension', 'documentWithCaptionMessage']) {
+          if (quoted[key]?.message) {
+            quoted = quoted[key].message;
+            unwrapped = true;
+            break;
+          }
+        }
+      }
 
       const type = Object.keys(quoted)[0];
 

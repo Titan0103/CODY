@@ -1,4 +1,3 @@
-const fetch = require("node-fetch");
 const fs = require("fs");
 const path = require("path");
 const { exec } = require("child_process");
@@ -43,6 +42,7 @@ module.exports = {
                 `&q=${encodeURIComponent(emoji1)}_${encodeURIComponent(emoji2)}`;
 
             const response = await fetch(url);
+            if (!response.ok) throw new Error(`Tenor request failed (${response.status})`);
             const data = await response.json();
 
             if (!data.results?.length) {
@@ -61,7 +61,9 @@ module.exports = {
 
             /* Download image */
 
-            const imageBuffer = await (await fetch(imageUrl)).buffer();
+            const imageResponse = await fetch(imageUrl);
+            if (!imageResponse.ok) throw new Error(`Emoji image download failed (${imageResponse.status})`);
+            const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
             fs.writeFileSync(tempFile, imageBuffer);
 
             /* Convert to sticker */

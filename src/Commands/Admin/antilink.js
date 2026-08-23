@@ -102,7 +102,7 @@ module.exports = {
 
         const sub = args[0]?.toLowerCase();
 
-        if (!sub) {
+        if (!sub || sub === 'status') {
             const whitelist = cfg.whitelist.length ? cfg.whitelist.map(u => `❏ ${u}`).join('\n') : '❏ none';
             const permit = cfg.permit.length ? cfg.permit.map(u => `❏ ${u}`).join('\n') : '❏ none';
             const domains = cfg.domains.length ? cfg.domains.map(d => `❏ ${d}`).join('\n') : '❏ none';
@@ -176,7 +176,7 @@ module.exports = {
         // ── NEW: ADD DOMAIN ──────────────────────────────────────────────
         if (sub === 'add') {
             const domain = args[1]?.trim().toLowerCase();
-            if (!domain) return reply(`${prefix}✐ Usage: antilink add <domain>\nExample: .antilink add github.com`);
+            if (!domain) return reply(`✐ Usage: .antilink add <domain>\nExample: .antilink add github.com`);
             
             // Remove http://, https://, www., and trailing slashes
             let cleanDomain = domain.replace(/^https?:\/\//i, '').replace(/^www\./, '').replace(/\/$/, '');
@@ -213,7 +213,7 @@ module.exports = {
 
         if (sub === 'allow') {
             const url = args[1]?.trim();
-            if (!url || !url.startsWith('http')) return reply(`${prefix}✐ Usage: antilink allow <full_link>\nExample: .antilink allow https://youtube.com/watch?v=abc123`);
+            if (!url || !url.startsWith('http')) return reply(`✐ Usage: .antilink allow <full_link>\nExample: .antilink allow https://youtube.com/watch?v=abc123`);
             if (cfg.whitelist.includes(url)) return reply('`✘ Link already allowed.`');
             cfg.whitelist.push(url);
             saveDB(db);
@@ -230,7 +230,7 @@ module.exports = {
         }
         if (sub === 'permit') {
             const url = args[1]?.trim();
-            if (!url || !url.startsWith('http')) return reply(`${prefix}✐ Usage: antilink permit <url_prefix>\nExample: .antilink permit https://whatsapp.com/channel`);
+            if (!url || !url.startsWith('http')) return reply(`✐ Usage: .antilink permit <url_prefix>\nExample: .antilink permit https://whatsapp.com/channel`);
             if (cfg.permit.includes(url)) return reply('`✘ URL prefix already permitted.`');
             cfg.permit.push(url);
             saveDB(db);
@@ -271,12 +271,12 @@ module.exports = {
             if (warns[key]) {
                 delete warns[key];
                 saveWarns(warns);
-                return reply(`${prefix}✓ Warnings reset for @${mentioned.split('@')[0]}`);
+                return reply(`✓ Warnings reset for @${mentioned.split('@')[0]}`);
             }
             return reply('`✘ User has no warnings.`');
         }
 
-        return reply(`${prefix}𒆜 Usage:\nantilink on/off\n.antilink delete/warn/kick/tkick 5m\n.antilink add <domain>\n.antilink remove <domain>\n.antilink allow <full_link>\n.antilink disallow <full_link>\n.antilink permit <url_prefix>\n.antilink unpermit <url_prefix>\n.antilink allowlist/permitlist/domainlist\n.antilink resetwarn @user\n.antilink clear`);
+        return reply(`𒆜 Usage:\nantilink on/off\n.antilink delete/warn/kick/tkick 5m\n.antilink add <domain>\n.antilink remove <domain>\n.antilink allow <full_link>\n.antilink disallow <full_link>\n.antilink permit <url_prefix>\n.antilink unpermit <url_prefix>\n.antilink allowlist/permitlist/domainlist\n.antilink resetwarn @user\n.antilink clear`);
     }
 };
 

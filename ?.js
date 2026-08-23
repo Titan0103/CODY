@@ -573,6 +573,16 @@ try {
                 }
             } catch {}
 
+            // Run passive moderation and view-once hooks before command/chatbot
+            // handlers can short-circuit the event. These hooks inspect ordinary
+            // messages; command messages remain handled by handleMessage below.
+            try { await require('./src/Commands/Admin/antigm.js').handleAntiGM?.(sock, m, mek); } catch (err) { console.error('[ANTIGM ERROR]', err.message); }
+            try { await require('./src/Commands/Admin/antigroupstatus.js').handleAntiGroupStatus?.(sock, m, mek); } catch (err) { console.error('[ANTIGROUPSTATUS ERROR]', err.message); }
+            try { await require('./src/Commands/Admin/antibot.js').handleAntiBot?.(sock, m, mek); } catch (err) { console.error('[ANTIBOT ERROR]', err.message); }
+            try { await require('./src/Commands/Admin/antiforward.js').handleAntiForward?.(sock, m); } catch (err) { console.error('[ANTIFORWARD ERROR]', err.message); }
+            try { await require('./src/Commands/Admin/antilink.js').handleAntiLink?.(sock, m); } catch (err) { console.error('[ANTILINK ERROR]', err.message); }
+            try { await require('./src/Commands/Converter/vvcmd.js').handleVVReply?.(sock, m); } catch (err) { console.error('[VV ERROR]', err.message); }
+
             await handleMessage(sock, m, customStore);
 
             // --- plogme hook (dedupe + short-circuit) — runs BEFORE the old
@@ -612,40 +622,6 @@ try {
             } catch (err) {
                 console.error('[CHATBOT COMPAT ERROR]', err?.message || err);
             }
-
-            try {
-                const antigm = require('./src/Commands/Admin/antigm.js');
-                if (antigm?.handleAntiGM) await antigm.handleAntiGM(sock, m, mek);
-            } catch (err) { console.error('[ANTIGM ERROR]', err.message); }
-
-            try {
-                const antigroupstatus = require('./src/Commands/Admin/antigroupstatus.js');
-                if (antigroupstatus?.handleAntiGroupStatus) {
-                    await antigroupstatus.handleAntiGroupStatus(sock, m, mek);
-                }
-            } catch (err) { console.error('[ANTIGROUPSTATUS ERROR]', err.message); }
-
-            try {
-                const antibot = require('./src/Commands/Admin/antibot.js');
-                if (antibot?.handleAntiBot) {
-                    await antibot.handleAntiBot(sock, m, mek);
-                }
-            } catch (err) { console.error('[ANTIBOT ERROR]', err.message); }
-
-            try {
-                const antiforward = require('./src/Commands/Admin/antiforward.js');
-                if (antiforward?.handleAntiForward) await antiforward.handleAntiForward(sock, m);
-            } catch (err) { console.error('[ANTIFORWARD ERROR]', err.message); }
-
-            try {
-                const vvcmd = require('./src/Commands/Converter/vvcmd.js');
-                if (vvcmd?.handleVVReply) await vvcmd.handleVVReply(sock, m);
-            } catch {}
-
-            try {
-                const anti = require('./src/Commands/Admin/antilink.js');
-                if (anti?.handleAntiLink) await anti.handleAntiLink(sock, m);
-            } catch {}
 
             try {
                 if (m.isGroup && m.mentionedJid?.length) {
