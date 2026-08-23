@@ -62,23 +62,36 @@ module.exports = {
                 ]
             }));
 
+            let delivered = false;
             if (typeof sock.sendRichButtonGrid === 'function') {
-                await sock.sendRichButtonGrid(m.chat, {
-                    text: `🖼️ *WALLPAPER SEARCH: ${query}*`,
-                    footer: `Found ${results.length} results · ${source}`,
-                    cards
-                }, { quoted: m });
-            } else if (typeof sock.sendInteractiveCarousel === 'function') {
-                await sock.sendInteractiveCarousel(m.chat, {
-                    text: `🖼️ *WALLPAPER SEARCH: ${query}*`,
-                    footer: `Found ${results.length} results · ${source}`,
-                    cards
-                }, { quoted: m });
-            } else {
+                try {
+                    await sock.sendRichButtonGrid(m.chat, {
+                        text: `🖼️ *WALLPAPER SEARCH: ${query}*`,
+                        footer: `Found ${results.length} results · ${source}`,
+                        cards
+                    }, { quoted: m });
+                    delivered = true;
+                } catch (error) {
+                    console.warn('[WALLPAPER] Rich-grid delivery failed; using image fallback:', error.message);
+                }
+            }
+            if (!delivered && typeof sock.sendInteractiveCarousel === 'function') {
+                try {
+                    await sock.sendInteractiveCarousel(m.chat, {
+                        text: `🖼️ *WALLPAPER SEARCH: ${query}*`,
+                        footer: `Found ${results.length} results · ${source}`,
+                        cards
+                    }, { quoted: m });
+                    delivered = true;
+                } catch (error) {
+                    console.warn('[WALLPAPER] Carousel delivery failed; using image fallback:', error.message);
+                }
+            }
+            if (!delivered) {
                 for (const wp of results.slice(0, 5)) {
                     await sock.sendMessage(m.chat, {
                         image: { url: wp.proxy },
-                        caption: `🖼️ *Wallpaper: ${query}*\n\n_⚉ ${BOT_NAME} Vault_`
+                        caption: `🖼️ *Wallpaper: ${query}*\\n\\n_⚉ ${BOT_NAME} Vault_`
                     }, { quoted: m });
                 }
             }
