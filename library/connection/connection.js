@@ -158,7 +158,11 @@ async function createSocket(sessionId) {
     const { state, saveCreds } = await getAuthState();
     const { version, isLatest } = await fetchLatestBaileysVersion();
 
-    console.log(`📦 Baileys v${version.join('.')} (latest: ${isLatest})`);
+    const installedPkg = require('@crysnovax/baileys/package.json');
+    console.log(`📦 Baileys v${installedPkg.version} — server negotiated: ${version.join('.')} (latest: ${isLatest})`);
+    if (!isLatest) {
+        console.log('⚠️  Baileys server version differs from installed — update may be available');
+    }
 
     const sock = makeWASocket({
         version,
@@ -192,6 +196,9 @@ const konek = async ({ sock, update, clientstart, DisconnectReason, Boom }) => {
     const { connection, lastDisconnect } = update;
     if (connection === 'close') {
         const reason = new Boom(lastDisconnect?.error)?.output.statusCode;
+        const errorMsg = lastDisconnect?.error?.message || '';
+
+        console.log(`🔴 Disconnected — reason: ${reason} (${errorMsg})`);
 
         if (reason === DisconnectReason.loggedOut) {
             console.log('🚫 Logged out. Delete sessions folder and restart.');
@@ -202,10 +209,45 @@ const konek = async ({ sock, update, clientstart, DisconnectReason, Boom }) => {
             process.exit(1);
         }
         if (reason === DisconnectReason.badSession) {
-            console.log('❌ Bad session. Delete sessions folder and re-pair.');
-            process.exit(1);
+            console.log('❌ Bad session. Cleaning stale session keys…');
+            try {
+                const appStatePath = path.join(SESSION_PATH, 'app-state-sync-key.data');
+                if (fs.existsSync(appStatePath)) {
+                    fs.removeSync(appStatePath);
+                    console.log('🧹 Removed stale app-state-sync-key.data');
+                }
+            } catch (_) {}
+            console.log('♻️  Reconnecting with fresh keys…');
+            setTimeout(() => clientstart(), 5000);
+            return;
         }
-        console.log(`🔄 Disconnected (code: ${reason}) — reconnecting in 3s...`);
+
+        // Handle post-pairing stale offline fallback (HTTP 405, Bad MAC, stale keys)
+        if (
+            reason === DisconnectReason.badMAC ||
+            errorMsg.includes('Bad MAC') ||
+            errorMsg.includes('405') ||
+            reason === 408
+        ) {
+            console.log('⚠️  Stale offline fallback / Bad MAC detected — cleaning…');
+            try {
+                const staleFiles = ['app-state-sync-key.data', 'app-state-sync-version.data'];
+                for (const f of staleFiles) {
+                    const fp = path.join(SESSION_PATH, f);
+                    if (fs.existsSync(fp)) {
+                        fs.removeSync(fp);
+                        console.log(`🧹 Removed ${f}`);
+                    }
+                }
+            } catch (_) {}
+            console.log('♻️  Reconnecting in 5s…');
+            setTimeout(() => clientstart(), 5000);
+            return;
+        }
+
+        // Default reconnect for transient errors
+        console.log(`🔄 Reconnecting in 3s…`);
+        setTimeout(() => clientstart(), 3000);
     } else if (connection === 'open') {
         console.log('✓ Bot connected successfully');
     }
