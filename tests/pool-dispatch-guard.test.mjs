@@ -12,6 +12,8 @@ test('crysMsg has an explicit native pool dispatch guard before generic prefix p
   assert.ok(guard < prefixParser, 'pool guard must run before generic prefix parsing');
   assert.match(source, /\^\[\/.\]\(pooltable\|poolcard\|nativepool\|poolrich\)/);
   assert.match(source, /getCommand\('pooltable'\)/);
+  assert.match(source, /const nativePoolOwner = isOwner \|\| isDual \|\| !!m\.key\?\.fromMe \|\| !!m\.fromMe/);
+  assert.match(source, /if \(!nativePoolOwner\) return poolReply\(/);
 });
 
 test('pooltable command declares owner-only access', () => {

@@ -259,15 +259,19 @@ const handleMessage = async (sock, m, store) => {
         if (nativePoolMatch) {
             const nativePool = getCommand('pooltable');
             if (nativePool) {
-                if (!isOwner && !isDual) return;
-                const poolArgs = nativePoolMatch[2] ? nativePoolMatch[2].trim().split(/ +/) : [];
                 const poolReply = (txt, options = {}) => sock.sendMessage(m.chat, { text: txt, ...options }, { quoted: m });
+                // In a WhatsApp self-chat, the sender may be represented by a
+                // LID that does not match OWNER_NUMBER. fromMe is the reliable
+                // owner signal for that local test flow; never fail silently.
+                const nativePoolOwner = isOwner || isDual || !!m.key?.fromMe || !!m.fromMe;
+                if (!nativePoolOwner) return poolReply(cfg.message?.owner || 'Owner only!');
+                const poolArgs = nativePoolMatch[2] ? nativePoolMatch[2].trim().split(/ +/) : [];
                 return nativePool.execute(sock, m, {
                     args: poolArgs,
                     text: poolArgs.join(' '),
                     prefix: body.trim()[0],
                     command: 'pooltable',
-                    isOwner,
+                    isOwner: nativePoolOwner,
                     isSudo,
                     isDual,
                     isGroup: m.isGroup,
