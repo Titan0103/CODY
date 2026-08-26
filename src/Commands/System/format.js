@@ -4,7 +4,7 @@ const axios = require('axios');
 const AdmZip = require('adm-zip');
 
 const CONFIG = {
-    repo: 'crysnovax/CRYSNOVA_AI',
+    repo: 'crysnovax/CODY',
     branch: 'main',
     tempDir: './.format_temp',
     backupDir: './.format_backup',
