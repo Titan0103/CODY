@@ -3,7 +3,7 @@ const LOCAL_POOL_GAME_URL = process.env.CODY_POOL_GAME_URL || 'https://3000-i7qa
 
 module.exports = {
     name: 'poolgame',
-    alias: ['pool', 'pocketrelay', '8ball'],
+    alias: ['pool', 'pocketrelay'],
     desc: 'Open the local Pocket Relay pool game',
     category: 'Owner',
     owner: true,

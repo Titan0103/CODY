@@ -29,7 +29,7 @@ const keyFor = (m) => `${m.chat}:${m.quoted?.key?.id || m.message?.extendedTextM
 
 const poolcard = {
     name: 'poolcard',
-    alias: ['poolrich', 'pooltable'],
+    alias: ['nativepool', 'poolrich', 'pooltable'],
     desc: 'Send an interactive native pool rich card',
     category: 'Owner',
     owner: true,
@@ -52,7 +52,7 @@ const poolcard = {
         const targetId = m.quoted?.key?.id || m.message?.extendedTextMessage?.contextInfo?.stanzaId;
         const sessionKey = targetId ? `${m.chat}:${targetId}` : [...sessions.keys()].reverse().find((key) => key.startsWith(`${m.chat}:`));
         const session = sessionKey ? sessions.get(sessionKey) : null;
-        if (!session) return reply('Pool card session expired. Send /poolcard again.');
+        if (!session) return reply('Pool card session expired. Send .nativepool again.');
         if (action === 'reset') Object.assign(session, { credits: 530, bet: 10, bestWin: 0, sunk: 0, lastResult: 'Table reset' });
         else if (action === 'bet') {
             if (session.credits < session.bet) session.lastResult = 'Not enough credits';
