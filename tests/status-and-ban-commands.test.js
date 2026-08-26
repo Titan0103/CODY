@@ -8,7 +8,14 @@ Module._load = function patchedLoad(request, parent, isMain) {
         return {
             downloadContentFromMessage: async function* () {
                 yield Buffer.from('unused');
-            }
+            },
+            checkStatusWA: async number => ({
+                number: `+${number}`,
+                status: 'active',
+                isBanned: false,
+                isNeedOfficialWa: false,
+                banInfo: null
+            })
         };
     }
     return originalLoad.call(this, request, parent, isMain);
@@ -70,17 +77,15 @@ test('groupstatus sends audio through sendGroupStatus with selectable background
     assert.match(replies[0], /Group status posted/i);
 });
 
-test('bancheck reports registration status using onWhatsApp', async () => {
+test('bancheck reports Baileys ban status using the number directly', async () => {
     const replies = [];
-    const sock = {
-        onWhatsApp: async jid => [{ jid, exists: true }]
-    };
 
-    await bancheck.execute(sock, { chat: '12345@s.whatsapp.net' }, {
-        args: ['15550001111'],
+    await bancheck.execute({}, { chat: '12345@s.whatsapp.net' }, {
+        args: ['+1 (555) 000-1111'],
         reply: async value => replies.push(value)
     });
 
-    assert.match(replies[0], /registered/i);
-    assert.match(replies[0], /not an official account-ban verdict/i);
+    assert.match(replies[0], /Status: active/i);
+    assert.match(replies[0], /Ban detected: NO/i);
+    assert.match(replies[0], /ban-status endpoint/i);
 });
