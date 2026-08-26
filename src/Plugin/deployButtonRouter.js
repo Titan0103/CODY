@@ -1,3 +1,9 @@
+const POOL_BUTTON_COMMANDS = new Map([
+    ['poolcard:bet', '.poolcard bet'],
+    ['poolcard:shoot', '.poolcard shoot'],
+    ['poolcard:reset', '.poolcard reset'],
+]);
+
 const DEPLOY_BUTTON_COMMANDS = new Map([
     ['step 1 · discord', '.deploy step1'],
     ['step 1 - discord', '.deploy step1'],
@@ -19,6 +25,8 @@ const DEPLOY_BUTTON_COMMANDS = new Map([
 const normalizeDeployButton = value => {
     const text = String(value || '').trim();
     if (!text) return null;
+    const poolAction = POOL_BUTTON_COMMANDS.get(text.toLowerCase());
+    if (poolAction) return poolAction;
     const menuScoped = text.match(/^\.deploy\s+(step[1-4]|help|tutorials|menu)(?:\s+--menu=[a-z0-9_-]+)?$/i);
     if (menuScoped) return `.deploy ${menuScoped[1].toLowerCase()}`;
     const deployScoped = text.match(/^deploy:(step[1-4]|help|tutorials|menu)(?:\s+--menu=[a-z0-9_-]+)?$/i);
@@ -102,5 +110,6 @@ module.exports = {
     normalizeDeployButton,
     normalizeDeployButtonMessage,
     extractDeployButtonValues,
-    DEPLOY_BUTTON_COMMANDS
+    DEPLOY_BUTTON_COMMANDS,
+    POOL_BUTTON_COMMANDS
 };
