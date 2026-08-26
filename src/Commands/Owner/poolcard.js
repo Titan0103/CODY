@@ -33,6 +33,7 @@ const poolcard = {
     desc: 'Send an interactive native pool rich card',
     category: 'Owner',
     owner: true,
+    ownerOnly: true,
     reactions: { start: '🎱', success: '✅', error: '❔' },
 
     execute: async (sock, m, { args = [], reply }) => {
