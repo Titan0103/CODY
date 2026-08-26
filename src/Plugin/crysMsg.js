@@ -251,38 +251,6 @@ const handleMessage = async (sock, m, store) => {
             }
         }
 
-        // Native pool cards may be tapped as `/pooltable` on clients whose
-        // configured prefix is `.`, and button callbacks may arrive without
-        // the configured prefix. Dispatch these exact actions before generic
-        // prefix/fallback handling so they can never fall through to deploy.
-        const nativePoolMatch = body.trim().match(/^[/.](pooltable|poolcard|nativepool|poolrich)(?:\s+(.+))?$/i);
-        if (nativePoolMatch) {
-            const nativePool = getCommand('pooltable');
-            if (nativePool) {
-                const poolReply = (txt, options = {}) => sock.sendMessage(m.chat, { text: txt, ...options }, { quoted: m });
-                // In a WhatsApp self-chat, the sender may be represented by a
-                // LID that does not match OWNER_NUMBER. fromMe is the reliable
-                // owner signal for that local test flow; never fail silently.
-                const nativePoolOwner = isOwner || isDual || !!m.key?.fromMe || !!m.fromMe;
-                if (!nativePoolOwner) return poolReply(cfg.message?.owner || 'Owner only!');
-                const poolArgs = nativePoolMatch[2] ? nativePoolMatch[2].trim().split(/ +/) : [];
-                return nativePool.execute(sock, m, {
-                    args: poolArgs,
-                    text: poolArgs.join(' '),
-                    prefix: body.trim()[0],
-                    command: 'pooltable',
-                    isOwner: nativePoolOwner,
-                    isSudo,
-                    isDual,
-                    isGroup: m.isGroup,
-                    reply: poolReply,
-                    config: cfg,
-                    store,
-                    getVar
-                });
-            }
-        }
-
         // ── PREFIX HANDLING — supports null/empty for no-prefix mode ──
         let cmdName, args, text;
 
