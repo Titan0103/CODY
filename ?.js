@@ -269,7 +269,15 @@ setupPromotionGuard(sock);
                 mek.message?.richResponseMessage ||
                 mek.message?.botForwardedMessage?.message?.richResponseMessage
             ));
-            if (ownRichResponse) return;
+            // Native rich grids can be emitted as a `cards` envelope rather
+            // than richResponseMessage. In self-chat that envelope is echoed
+            // back as fromMe; parsing its poolcard button IDs as a new command
+            // caused the Gen4 deploy fallback to answer every pool message.
+            const ownRichCard = Boolean(mek.key?.fromMe && (
+                mek.message?.cards ||
+                mek.message?.botForwardedMessage?.message?.cards
+            ));
+            if (ownRichResponse || ownRichCard) return;
 
             // Gen4 diagnostic: prove whether WhatsApp delivered the tap and
             // expose the exact Baileys envelope before downstream plugins run.
@@ -286,24 +294,41 @@ setupPromotionGuard(sock);
                 }));
 
                 // Rich-menu CTA replies can be self-authored conversation
-                // messages and may bypass normal command parsing. Execute the
-                // deployment command directly at the active event boundary.
+                // messages and may bypass normal command parsing. Route each
+                // supported native callback to its owning command directly.
                 try {
-                    const deploy = require('./src/Commands/System/deploy.js');
-                    const deployArgs = rawGen4Command.replace(/^\.deploy\s*/i, '').trim().split(/\s+/).filter(Boolean);
-                    const deployReply = text => sock.sendMessage(m.chat, { text: String(text) }, { quoted: m });
-                    await deploy.execute(sock, m, {
-                        args: deployArgs,
-                        text: deployArgs.join(' '),
-                        command: 'deploy',
-                        prefix: '.',
-                        reply: deployReply,
-                        isOwner: true,
-                        isSudo: true,
-                        isDual: false,
-                        isGroup: m.isGroup,
-                        store: customStore
-                    });
+                    const directArgs = rawGen4Command.replace(/^\.(?:deploy|poolcard)\s*/i, '').trim().split(/\s+/).filter(Boolean);
+                    const directReply = text => sock.sendMessage(m.chat, { text: String(text) }, { quoted: m });
+                    if (/^\.poolcard\b/i.test(rawGen4Command)) {
+                        const poolcard = require('./src/Commands/Owner/poolcard.js');
+                        await poolcard.execute(sock, m, {
+                            args: directArgs,
+                            text: directArgs.join(' '),
+                            command: 'poolcard',
+                            prefix: '.',
+                            reply: directReply,
+                            isOwner: true,
+                            isSudo: true,
+                            isDual: false,
+                            isGroup: m.isGroup,
+                            store: customStore
+                        });
+                    } else {
+                        const deploy = require('./src/Commands/System/deploy.js');
+                        const deployArgs = rawGen4Command.replace(/^\.deploy\s*/i, '').trim().split(/\s+/).filter(Boolean);
+                        await deploy.execute(sock, m, {
+                            args: deployArgs,
+                            text: deployArgs.join(' '),
+                            command: 'deploy',
+                            prefix: '.',
+                            reply: directReply,
+                            isOwner: true,
+                            isSudo: true,
+                            isDual: false,
+                            isGroup: m.isGroup,
+                            store: customStore
+                        });
+                    }
                     return;
                 } catch (err) {
                     console.error('[GEN4 DIRECT LISTENER ERROR]', err.message);
