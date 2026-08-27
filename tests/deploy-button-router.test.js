@@ -39,6 +39,16 @@ test('normalizes per-menu callback IDs', () => {
     assert.equal(normalizeDeployButton('.deploy step1 --menu=ABC!'), null);
 });
 
+test('normalizes Pocket Relay callback IDs to the pool command', () => {
+    assert.equal(normalizeDeployButton('poolcard:bet'), '.poolcard bet');
+    assert.equal(normalizeDeployButton('poolcard:shoot'), '.poolcard shoot');
+    assert.equal(normalizeDeployButtonMessage({ interactiveResponseMessage: {
+        nativeFlowResponseMessage: {
+            buttonParamsJson: JSON.stringify({ id: 'poolcard:reset', display_text: 'RESET' })
+        }
+    }}), '.poolcard reset');
+});
+
 test('normalizes callback IDs and preserves unrelated text', () => {
     assert.equal(normalizeDeployButton('deploy:step3'), '.deploy step3');
     assert.equal(normalizeDeployButton('.deploy step4'), '.deploy step4');
