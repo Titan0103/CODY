@@ -38,6 +38,12 @@ const reelLines = (step) => {
     return [row, next, third].map((line) => `│ ${line.join(' │ ')} │`).join('\n');
 };
 
+const buttonsFor = () => [
+    { id: 'poolcard:bet', text: 'BET +' },
+    { id: 'poolcard:shoot', text: 'SHOOT' },
+    { id: 'poolcard:reset', text: 'RESET' }
+];
+
 const stateFor = (session) => {
     const status = session.lastResult || 'Good luck · choose your shot';
     return {
@@ -58,11 +64,8 @@ const stateFor = (session) => {
             '      [ BET + ]          [ SHOOT ]',
             '           POCKET RELAY · BEST OF 3'
         ].join('\n'),
-        buttons: [
-            { id: 'poolcard:bet', text: 'BET +' },
-            { id: 'poolcard:shoot', text: 'SHOOT' },
-            { id: 'poolcard:reset', text: 'RESET' }
-        ]
+        buttons: buttonsFor(),
+        footer: 'Native game surface · tap a control'
     };
 };
 
@@ -81,20 +84,18 @@ const poolcard = {
     reactions: { start: '🎱', success: '✅', error: '❔' },
 
     execute: async (sock, m, { args = [], reply }) => {
-        if (typeof sock.sendRichButtonGrid !== 'function') {
-            return reply('sendRichButtonGrid is unavailable; update @crysnovax/baileys first.');
-        }
-
         const action = String(args[0] || '').toLowerCase();
         if (!action) {
             let session;
             try {
                 session = { credits: 530, bet: 10, bestWin: 0, spin: 0, lastResult: null, cardImage: await loadCardImage() };
-                const sent = await sock.sendRichButtonGrid(
-                    m.chat,
-                    { text: '🎱 POCKET RELAY', footer: 'Native game surface · tap a control', cards: [stateFor(session)] },
-                    { quoted: m }
-                );
+                const view = stateFor(session);
+                const sent = await sock.sendMessage(m.chat, {
+                    image: view.image,
+                    caption: view.caption,
+                    footer: view.footer,
+                    nativeFlow: view.buttons
+                }, { quoted: m });
                 const messageId = sent?.key?.id || sent?.messageId;
                 if (!messageId) return reply('Pocket Relay was sent without a message key; updates cannot be attached.');
                 sessions.set(`${m.chat}:${messageId}`, { ...session, messageId });
@@ -132,19 +133,16 @@ const poolcard = {
         }
 
         const updated = stateFor(session);
-        if (typeof sock.updateRichGeneration === 'function') {
-            await sock.updateRichGeneration(m.chat, session.messageId, {
-                text: updated.caption,
-                footer: 'Native game surface · tap a control',
-                cards: [updated]
-            }, { forwarded: true });
-        } else {
-            await sock.sendMessage(m.chat, {
-                text: updated.caption,
-                footer: 'Native game surface · tap a control',
-                cards: [updated]
-            }, { edit: { remoteJid: m.chat, id: session.messageId } });
-        }
+        await sock.sendMessage(m.chat, {
+            image: updated.image,
+            caption: updated.caption,
+            footer: updated.footer,
+            nativeFlow: updated.buttons
+        }, {
+            edit: { remoteJid: m.chat, id: session.messageId, fromMe: true },
+            quoted: m,
+            forwarded: true
+        });
         await sock.sendMessage(m.chat, { react: { text: '✅', key: m.key } }).catch(() => {});
     }
 };
