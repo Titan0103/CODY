@@ -41,7 +41,7 @@ test('pooltable updates the same card through the native rich edit helper', asyn
 
     await poolcard.execute(sock, {
         chat,
-        quoted: { key: { id: 'pool-2' } },
+        quoted: { key: { id: 'callback-envelope-1' } },
         key: { id: 'button-1' }
     }, { args: ['shoot'], reply: async () => {} });
 
