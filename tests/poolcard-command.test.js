@@ -3,64 +3,64 @@ const test = require('node:test');
 
 const poolcard = require('../src/Commands/Owner/poolcard.js');
 
-test('pooltable sends a composed visual card with native controls', async () => {
-    const calls = [];
-    const previousFetch = global.fetch;
-    global.fetch = async () => ({ ok: true, arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer });
-    const sock = {
-        sendMessage: async (jid, payload) => {
-            calls.push({ type: 'send', jid, payload });
-            return { key: { id: 'pool-1' } };
-        }
-    };
+const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-    await poolcard.execute(sock, { chat: '123@g.us' }, { args: [], reply: async () => {} });
-
-    assert.equal(calls.length, 1);
-    assert.ok(Buffer.isBuffer(calls[0].payload.image));
-    assert.match(calls[0].payload.caption, /POCKET RELAY/);
-    assert.match(calls[0].payload.caption, /CREDITS/);
-    assert.deepEqual(calls[0].payload.nativeFlow.map(button => button.id), [
-        'poolcard:bet', 'poolcard:shoot', 'poolcard:reset'
-    ]);
-    global.fetch = previousFetch;
-});
-
-test('pooltable updates the same card through the native rich edit helper', async () => {
+test('pooltable sends one RichGen image and updates the same message with bounded frames', async () => {
+    const sends = [];
     const updates = [];
-    const reactions = [];
+    const previousSend = poolcard.generationPayload;
     const sock = {
-        sendMessage: async (jid, content, options) => {
-            if (options?.edit) updates.push({ jid, content, options });
-            else reactions.push({ jid, content });
-            return { key: { id: 'updated' } };
+        sendRichGeneration: async (jid, payload, quoted) => {
+            sends.push({ jid, payload, quoted });
+            return { messageId: 'rich-1', responseId: 'response-1', itemId: 'item-1' };
+        },
+        updateRichGeneration: async (jid, messageId, payload, options) => {
+            updates.push({ jid, messageId, payload, options });
+            return { messageId, responseId: options.responseId, itemId: options.itemId };
         }
     };
-    const chat = '123@g.us';
-    const sessionId = `${chat}:pool-2`;
-    poolcard.sessions.set(sessionId, { credits: 530, bet: 10, bestWin: 0, spin: 0, lastResult: null, messageId: 'pool-2' });
 
-    await poolcard.execute(sock, {
-        chat,
-        quoted: { key: { id: 'callback-envelope-1' } },
-        key: { id: 'button-1' }
-    }, { args: ['shoot'], reply: async () => {} });
+    const originalDelay = global.setTimeout;
+    global.setTimeout = (callback, ms, ...args) => originalDelay(callback, Math.min(ms, 1), ...args);
+    try {
+        await poolcard.execute(sock, { chat: '123@s.whatsapp.net' }, { args: [], reply: async () => {} });
+    } finally {
+        global.setTimeout = originalDelay;
+    }
 
-    assert.equal(updates.length, 1);
-    assert.equal(updates[0].jid, chat);
-    assert.equal(updates[0].options.edit.id, 'pool-2');
-    assert.equal(updates[0].options.forwarded, true);
-    assert.match(updates[0].content.caption, /WIN \+/);
-    assert.equal(reactions.length, 1);
-    poolcard.sessions.delete(sessionId);
+    assert.equal(sends.length, 1);
+    assert.equal(sends[0].payload.mediaType, 'image');
+    assert.equal(sends[0].payload.status, 'READY');
+    assert.match(sends[0].payload.text, /live spin wheel/i);
+    assert.equal(updates.length, poolcard.FRAME_URLS.length - 1);
+    assert.ok(updates.every(update => update.messageId === 'rich-1'));
+    assert.ok(updates.every(update => update.options.itemId === 'item-1'));
+    assert.ok(updates.every(update => update.options.responseId === 'response-1'));
+    assert.equal(updates.at(-1).payload.status, 'READY');
+    assert.equal(new Set(updates.map(update => update.payload.url)).size, updates.length);
+    assert.ok(updates.every(update => !('nativeFlow' in update.payload)));
+    assert.ok(updates.every(update => !('cards' in update.payload)));
+    assert.equal(previousSend, poolcard.generationPayload);
 });
 
-test('pooltable reports a clear helper error', async () => {
+test('pooltable rejects arguments instead of sending a second message type', async () => {
+    const replies = [];
+    let sends = 0;
+    const sock = { sendRichGeneration: async () => { sends += 1; } };
+    await poolcard.execute(sock, { chat: '123@s.whatsapp.net' }, {
+        args: ['shoot'],
+        reply: async value => replies.push(value)
+    });
+    assert.equal(sends, 0);
+    assert.match(replies[0], /automatic/i);
+});
+
+test('pooltable reports missing RichGen helpers clearly', async () => {
     const replies = [];
     await poolcard.execute({}, { chat: '123@s.whatsapp.net' }, {
         args: [],
         reply: async value => replies.push(value)
     });
     assert.equal(replies.length, 1);
-    assert.match(replies[0], /Pocket Relay session expired|Pocket Relay could not render/i);
+    assert.match(replies[0], /RichGen/i);
 });
