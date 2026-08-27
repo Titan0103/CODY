@@ -8,7 +8,7 @@ test('pooltable sends a composed visual card with native controls', async () => 
     const previousFetch = global.fetch;
     global.fetch = async () => ({ ok: true, arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer });
     const sock = {
-        sendRichButtonGrid: async (jid, payload) => {
+        sendMessage: async (jid, payload) => {
             calls.push({ type: 'send', jid, payload });
             return { key: { id: 'pool-1' } };
         }
@@ -17,11 +17,10 @@ test('pooltable sends a composed visual card with native controls', async () => 
     await poolcard.execute(sock, { chat: '123@g.us' }, { args: [], reply: async () => {} });
 
     assert.equal(calls.length, 1);
-    assert.equal(calls[0].payload.cards.length, 1);
-    assert.ok(Buffer.isBuffer(calls[0].payload.cards[0].image));
-    assert.match(calls[0].payload.cards[0].caption, /POCKET RELAY/);
-    assert.match(calls[0].payload.cards[0].caption, /CREDITS/);
-    assert.deepEqual(calls[0].payload.cards[0].buttons.map(button => button.id), [
+    assert.ok(Buffer.isBuffer(calls[0].payload.image));
+    assert.match(calls[0].payload.caption, /POCKET RELAY/);
+    assert.match(calls[0].payload.caption, /CREDITS/);
+    assert.deepEqual(calls[0].payload.nativeFlow.map(button => button.id), [
         'poolcard:bet', 'poolcard:shoot', 'poolcard:reset'
     ]);
     global.fetch = previousFetch;
@@ -31,12 +30,11 @@ test('pooltable updates the same card through the native rich edit helper', asyn
     const updates = [];
     const reactions = [];
     const sock = {
-        sendRichButtonGrid: async () => ({ key: { id: 'unused' } }),
-        updateRichGeneration: async (jid, targetId, content, options) => {
-            updates.push({ jid, targetId, content, options });
-            return { targetId };
-        },
-        sendMessage: async (jid, content) => reactions.push({ jid, content })
+        sendMessage: async (jid, content, options) => {
+            if (options?.edit) updates.push({ jid, content, options });
+            else reactions.push({ jid, content });
+            return { key: { id: 'updated' } };
+        }
     };
     const chat = '123@g.us';
     const sessionId = `${chat}:pool-2`;
@@ -50,9 +48,9 @@ test('pooltable updates the same card through the native rich edit helper', asyn
 
     assert.equal(updates.length, 1);
     assert.equal(updates[0].jid, chat);
-    assert.equal(updates[0].targetId, 'pool-2');
+    assert.equal(updates[0].options.edit.id, 'pool-2');
     assert.equal(updates[0].options.forwarded, true);
-    assert.match(updates[0].content.cards[0].caption, /WIN \+/);
+    assert.match(updates[0].content.caption, /WIN \+/);
     assert.equal(reactions.length, 1);
     poolcard.sessions.delete(sessionId);
 });
@@ -64,5 +62,5 @@ test('pooltable reports a clear helper error', async () => {
         reply: async value => replies.push(value)
     });
     assert.equal(replies.length, 1);
-    assert.match(replies[0], /sendRichButtonGrid/i);
+    assert.match(replies[0], /Pocket Relay session expired|Pocket Relay could not render/i);
 });
