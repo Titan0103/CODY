@@ -53,6 +53,9 @@ const stateFor = (session) => {
 };
 
 const keyFor = (m) => `${m.chat}:${m.quoted?.key?.id || m.message?.extendedTextMessage?.contextInfo?.stanzaId || m.key?.id || 'latest'}`;
+const latestSessionForChat = (chat) => [...sessions.entries()]
+    .reverse()
+    .find(([key]) => key.startsWith(`${chat}:`))?.[1] || null;
 
 const poolcard = {
     name: 'pooltable',
@@ -83,10 +86,12 @@ const poolcard = {
         }
 
         const targetId = m.quoted?.key?.id || m.message?.extendedTextMessage?.contextInfo?.stanzaId;
-        const sessionKey = targetId
-            ? `${m.chat}:${targetId}`
-            : [...sessions.keys()].reverse().find((key) => key.startsWith(`${m.chat}:`));
-        const session = sessionKey ? sessions.get(sessionKey) : null;
+        const exactSession = targetId ? sessions.get(`${m.chat}:${targetId}`) : null;
+        // WhatsApp clients may expose the callback envelope ID or stanza ID
+        // instead of the original rich-card ID. Prefer an exact match, then
+        // use the newest active card in this chat rather than rejecting a
+        // valid button tap as an expired session.
+        const session = exactSession || latestSessionForChat(m.chat);
         if (!session) return reply('Pocket Relay session expired. Send .pooltable again.');
 
         if (action === 'reset') {
@@ -129,3 +134,4 @@ module.exports = poolcard;
 module.exports.sessions = sessions;
 module.exports.stateFor = stateFor;
 module.exports.keyFor = keyFor;
+module.exports.latestSessionForChat = latestSessionForChat;
