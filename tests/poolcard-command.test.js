@@ -5,6 +5,8 @@ const poolcard = require('../src/Commands/Owner/poolcard.js');
 
 test('pooltable sends a composed visual card with native controls', async () => {
     const calls = [];
+    const previousFetch = global.fetch;
+    global.fetch = async () => ({ ok: true, arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer });
     const sock = {
         sendRichButtonGrid: async (jid, payload) => {
             calls.push({ type: 'send', jid, payload });
@@ -16,12 +18,13 @@ test('pooltable sends a composed visual card with native controls', async () => 
 
     assert.equal(calls.length, 1);
     assert.equal(calls[0].payload.cards.length, 1);
-    assert.ok(calls[0].payload.cards[0].image.url);
+    assert.ok(Buffer.isBuffer(calls[0].payload.cards[0].image));
     assert.match(calls[0].payload.cards[0].caption, /POCKET RELAY/);
     assert.match(calls[0].payload.cards[0].caption, /CREDITS/);
     assert.deepEqual(calls[0].payload.cards[0].buttons.map(button => button.id), [
         'poolcard:bet', 'poolcard:shoot', 'poolcard:reset'
     ]);
+    global.fetch = previousFetch;
 });
 
 test('pooltable updates the same card through the native rich edit helper', async () => {
