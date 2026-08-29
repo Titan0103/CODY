@@ -52,8 +52,11 @@ function getMessageText(value, seen = new WeakSet()) {
 
 function hasLink(text) {
     if (/(?:https?:\/\/|www\.|chat\.whatsapp\.com|wa\.me)/i.test(text)) return true;
-    // Bare domains, including short-link hosts such as vt.tiktok.com.
-    return /(?:^|[^a-z0-9-])(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s<>]*)?/i.test(text);
+    // Bare domains — require whitespace or line start before the domain so
+    // words like "okay" (where "kay.com" looks like a domain) are not
+    // flagged.  The character-class after the space includes common link-
+    // delimiters such as < > and ( ) but excludes regular letters/digits.
+    return /(?:^|(?<=\s))(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s<>]*)?/i.test(text);
 }
 
 function cleanUrl(value) {

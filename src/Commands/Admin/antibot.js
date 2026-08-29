@@ -64,10 +64,7 @@ plugin.handleModeration = async (sock, m, mek) => {
     const messageId = extractMessageId(m, mek);
     const stamp = matchedStamp(messageId);
     if (!stamp) return false; // no known stamp — not flagged, defer entirely to original gating for anything else
-    console.log(`[ANTIBOT TRACE] stamp confirmed (${stamp}), id=${messageId} — about to call originalHandleModeration`);
-    const result = await originalHandleModeration(sock, m, mek);
-    console.log(`[ANTIBOT TRACE] originalHandleModeration returned:`, result, `for id=${messageId}`);
-    return result;
+    return originalHandleModeration(sock, m, mek);
 };
 
 plugin.matchedStamp = matchedStamp;
