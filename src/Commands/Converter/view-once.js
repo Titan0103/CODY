@@ -218,9 +218,54 @@ module.exports.handleAutoVV = async function handleAutoVV(sock, m, mek) {
   try {
     const chat = m?.chat || mek?.key?.remoteJid;
     if (!chat || !autoVVChats[chat] || mek?.key?.fromMe) return false;
-    const content = unwrapViewOnce(mek?.message || m?.message);
-    const media = await downloadMedia(content);
+
+    // Build the raw message envelope — check both mek.message and m.message
+    // (smsg may have already copied it over). Also try the wrapper keys
+    // directly on mek in case smsg stripped the outer envelope.
+    const rawEnvelope = mek?.message || m?.message || m?.msg || {};
+
+    // Detect whether this is a view-once message by checking for the
+    // wrapper keys at ANY nesting depth (ephemeral → viewOnce → media).
+    const VIEW_ONCE_KEYS = [
+      'viewOnceMessage', 'viewOnceMessageV2', 'viewOnceMessageV2Extension'
+    ];
+    const isViewOnce = (obj) => {
+      if (!obj || typeof obj !== 'object') return false;
+      for (const k of VIEW_ONCE_KEYS) {
+        if (obj[k]) return true;
+      }
+      // Also check if the message has viewOnce flag inside an ephemeral wrapper
+      if (obj.ephemeralMessage?.message) return isViewOnce(obj.ephemeralMessage.message);
+      return false;
+    };
+
+    // Try unwrapping from the raw envelope first (most reliable for detection)
+    let content = unwrapViewOnce(rawEnvelope);
+
+    // If unwrap didn't change anything (no wrapper found), the message might
+    // already be unwrapped by smsg — just use it directly.
+    let media = await downloadMedia(content);
+
+    // Fallback: check if m.message has media directly (smsg unwrapped it)
+    if (!media && m?.message) {
+      media = await downloadMedia(m.message);
+    }
+
+    // Last fallback: check m itself (smsg sometimes puts media type at top)
+    if (!media) {
+      for (const t of ['imageMessage', 'videoMessage', 'stickerMessage', 'audioMessage']) {
+        if (m?.[t]) {
+          const stream = await downloadContentFromMessage(m[t], t.replace('Message', '').toLowerCase());
+          const chunks = [];
+          for await (const chunk of stream) chunks.push(chunk);
+          media = { type: t, buffer: Buffer.concat(chunks) };
+          break;
+        }
+      }
+    }
+
     if (!media) return false;
+
     const senderCandidates = [
       m?.sender,
       mek?.key?.participant,
