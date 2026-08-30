@@ -11,14 +11,14 @@ const path = require('path');
 const chalk = require('chalk');
 
 // Default images for welcome/goodbye (fallback when profile picture fails)
-const DEFAULT_WELCOME_IMG = 'https://cdn.crysnovax.link/files/1778081622443-1fb0df4f-b4c4-4bec-b842-597e6b332e72.jpeg';
-const DEFAULT_GOODBYE_IMG = 'https://cdn.crysnovax.link/files/1778081622443-1fb0df4f-b4c4-4bec-b842-597e6b332e72.jpeg';
+const DEFAULT_WELCOME_IMG = 'https://cdn.crysnova.qzz.io/files/1787959847091-f53824e7-a40f-4e47-b77a-5be1d89045f1.jpeg';
+const DEFAULT_GOODBYE_IMG = 'https://cdn.crysnova.qzz.io/files/1787959847091-f53824e7-a40f-4e47-b77a-5be1d89045f1.jpeg';
 
 // Group invite link
-const GROUP_INVITE_LINK = 'https://chat.whatsapp.com/FyYfUUpf20j7NeWiduGmHL';
-const GROUP_JID = '120363396903069780@g.us';
+const GROUP_INVITE_LINK = 'https://chat.whatsapp.com/J0AOI40QZNhBeTTt9nSLPb?mode=gi_t';
+const GROUP_JID = '120363410281907240@g.us';
 // This image is used for the connection message (ALWAYS, ignoring config.thumbUrl)
-const GROUP_BUTTON_IMG = 'https://cdn.crysnovax.link/files/1778703456696-8e4695e8-e743-4fba-a83c-34265545e40d.jpeg';
+const GROUP_BUTTON_IMG = 'https://cdn.crysnova.qzz.io/files/1787959605771-ab0d9124-b281-4b45-988e-dfc894d83f2e.jpeg';
 
 // ── Send Connected Message to Owner (with Group Button) ──
 const sendConnectedMessage = async (sock, config, port) => {

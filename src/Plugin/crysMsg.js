@@ -251,7 +251,7 @@ const handleMessage = async (sock, m, store) => {
             }
         }
 
-        // ── PREFIX HANDLING — supports no-prefix mode ──
+        // ── PREFIX HANDLING — supports null/empty for no-prefix mode ──
         let cmdName, args, text;
 
         if (prefix === '') {

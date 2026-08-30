@@ -12,6 +12,12 @@ const { setupStatusHandler } = require('./src/Plugin/statusHandler');
 const { getVar }             = require('./src/Plugin/configManager');
 const { normalizeDeployButtonMessage } = require('./src/Plugin/deployButtonRouter');
 
+// Polyfill: sock.sendRichText was added as an alias for sock.sendMessage
+// to support chatbot responses that call sock.sendRichText(jid, { text }).
+const SEND_RICH_TEXT_POLYFILL = function sendRichText(jid, content, opts) {
+    return this.sendMessage(jid, content, opts);
+};
+
 const styles  = require("./src/Commands/Core/'.js");
 const botFont = require('./src/Commands/Bot/botfont.js');
 
@@ -146,6 +152,13 @@ sock.sendMessage = async (jid, content, options = {}) => {
 
     setupStatusHandler(sock);
 
+    // Polyfill: attach sendRichText to sock so eval/commands can call it
+    if (!sock.sendRichText) {
+        sock.sendRichText = function sendRichText(jid, content, opts) {
+            return this.sendMessage(jid, content, opts);
+        };
+    }
+
 const { patchGroupEvents } = require('./src/Plugin/groupEventsPatch');
 patchGroupEvents(sock);
 
@@ -269,7 +282,15 @@ setupPromotionGuard(sock);
                 mek.message?.richResponseMessage ||
                 mek.message?.botForwardedMessage?.message?.richResponseMessage
             ));
-            if (ownRichResponse) return;
+            // Native rich grids can be emitted as a `cards` envelope rather
+            // than richResponseMessage. In self-chat that envelope is echoed
+            // back as fromMe; parsing its poolcard button IDs as a new command
+            // caused the Gen4 deploy fallback to answer every pool message.
+            const ownRichCard = Boolean(mek.key?.fromMe && (
+                mek.message?.cards ||
+                mek.message?.botForwardedMessage?.message?.cards
+            ));
+            if (ownRichResponse || ownRichCard) return;
 
             // Gen4 diagnostic: prove whether WhatsApp delivered the tap and
             // expose the exact Baileys envelope before downstream plugins run.
@@ -286,24 +307,41 @@ setupPromotionGuard(sock);
                 }));
 
                 // Rich-menu CTA replies can be self-authored conversation
-                // messages and may bypass normal command parsing. Execute the
-                // deployment command directly at the active event boundary.
+                // messages and may bypass normal command parsing. Route each
+                // supported native callback to its owning command directly.
                 try {
-                    const deploy = require('./src/Commands/System/deploy.js');
-                    const deployArgs = rawGen4Command.replace(/^\.deploy\s*/i, '').trim().split(/\s+/).filter(Boolean);
-                    const deployReply = text => sock.sendMessage(m.chat, { text: String(text) }, { quoted: m });
-                    await deploy.execute(sock, m, {
-                        args: deployArgs,
-                        text: deployArgs.join(' '),
-                        command: 'deploy',
-                        prefix: '.',
-                        reply: deployReply,
-                        isOwner: true,
-                        isSudo: true,
-                        isDual: false,
-                        isGroup: m.isGroup,
-                        store: customStore
-                    });
+                    const directArgs = rawGen4Command.replace(/^\.(?:deploy|poolcard)\s*/i, '').trim().split(/\s+/).filter(Boolean);
+                    const directReply = text => sock.sendMessage(m.chat, { text: String(text) }, { quoted: m });
+                    if (/^\.poolcard\b/i.test(rawGen4Command)) {
+                        const poolcard = require('./src/Commands/Owner/poolcard.js');
+                        await poolcard.execute(sock, m, {
+                            args: directArgs,
+                            text: directArgs.join(' '),
+                            command: 'poolcard',
+                            prefix: '.',
+                            reply: directReply,
+                            isOwner: true,
+                            isSudo: true,
+                            isDual: false,
+                            isGroup: m.isGroup,
+                            store: customStore
+                        });
+                    } else {
+                        const deploy = require('./src/Commands/System/deploy.js');
+                        const deployArgs = rawGen4Command.replace(/^\.deploy\s*/i, '').trim().split(/\s+/).filter(Boolean);
+                        await deploy.execute(sock, m, {
+                            args: deployArgs,
+                            text: deployArgs.join(' '),
+                            command: 'deploy',
+                            prefix: '.',
+                            reply: directReply,
+                            isOwner: true,
+                            isSudo: true,
+                            isDual: false,
+                            isGroup: m.isGroup,
+                            store: customStore
+                        });
+                    }
                     return;
                 } catch (err) {
                     console.error('[GEN4 DIRECT LISTENER ERROR]', err.message);
@@ -579,6 +617,7 @@ try {
             try { await require('./src/Commands/Admin/antigm.js').handleAntiGM?.(sock, m, mek); } catch (err) { console.error('[ANTIGM ERROR]', err.message); }
             try { await require('./src/Commands/Admin/antigroupstatus.js').handleAntiGroupStatus?.(sock, m, mek); } catch (err) { console.error('[ANTIGROUPSTATUS ERROR]', err.message); }
             try { await require('./src/Commands/Admin/antibot.js').handleAntiBot?.(sock, m, mek); } catch (err) { console.error('[ANTIBOT ERROR]', err?.stack || err?.message || String(err)); }
+            try { await require('./src/Commands/Admin/antivv.js').handleAntiVV?.(sock, m, mek); } catch (err) { console.error('[ANTIVV ERROR]', err.message); }
             try { await require('./src/Commands/Admin/antiforward.js').handleAntiForward?.(sock, m, mek); } catch (err) { console.error('[ANTIFORWARD ERROR]', err.message); }
             try { await require('./src/Commands/Admin/antilink.js').handleAntiLink?.(sock, m, mek); } catch (err) { console.error('[ANTILINK ERROR]', err.message); }
             try { await require('./src/Commands/Converter/view-once.js').handleAutoVV?.(sock, m, mek); } catch (err) { console.error('[AUTOVV ERROR]', err.message); }

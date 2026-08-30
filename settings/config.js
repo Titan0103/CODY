@@ -103,7 +103,8 @@ const config = {
         userConfig?.thumbUrl         ||
     //    'https://cdn.crysnovax.link/files/1783469167623-6d58c43c-68b4-41ce-87ab-c0da1f615b28.mp4',
        // 'https://cdn.crysnovax.link/files/1778529162616-eca99707-7b11-453a-802a-e85a9d1c2395.jpeg',
-        'https://cdn.crysnovax.link/files/1784725819117-db2035e8-f797-4f47-8d41-e1dd6f546553.mp4',
+       // 'https://cdn.crysnovax.link/files/1784725819117-db2035e8-f797-4f47-8d41-e1dd6f546553.mp4',
+        'https://cdn.crysnova.qzz.io/files/1787958372411-7ca6ed60-abb2-4cb6-9868-316adfdfaeb1.mp4',
 
     // ════════════════════════════════════════════
     // PANEL CONNECTOR API (CODY)
